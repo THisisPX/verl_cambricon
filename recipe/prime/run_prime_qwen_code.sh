@@ -2,13 +2,21 @@ set -x
 
 
 # download from https://huggingface.co/datasets/PRIME-RL/Eurus-2-RL-Data
-code_train_path=$HOME/data/code/train.parquet
-code_test_path=$HOME/data/code/test.parquet
+code_train_path=/workspace/volume/pengxiong/datasets/Eurus-2-RL-Data/processed/code_500.parquet
+code_test_path=/workspace/volume/pengxiong/datasets/Eurus-2-RL-Data/processed/code_500-validation.parquet
 
+# code_train_path=/workspace/volume/pengxiong/datasets/Eurus-2-RL-Data/train.parquet
+# code_test_path=/workspace/volume/pengxiong/datasets/Eurus-2-RL-Data/validation.parquet
 train_files="['$code_train_path']"
 test_files="['$code_test_path']"
 
-model_path=PRIME-RL/Eurus-2-7B-SFT
+project_name="prime+"
+experiment_name="code"
+LOG_DIR="/workspace/volume/pengxiong/verl/logs/$project_name"
+mkdir -p "$LOG_DIR"
+LOG_PATH="$LOG_DIR/${experiment_name}.log"
+
+model_path=/workspace/dataset/favorite/soft-data-models/v1/Qwen2.5-7B-Instruct
 # model_path=Qwen/Qwen2.5-0.5B-Instruct
 
 python3 -m recipe.prime.main_prime \
@@ -51,11 +59,12 @@ python3 -m recipe.prime.main_prime \
     reward_model.model.input_tokenizer=null \
     reward_model.mini_batch_size=64 \
     trainer.val_before_train=False \
-    trainer.logger='["console","wandb"]' \
+    trainer.logger='["console"]' \
     trainer.project_name='prime_example' \
     trainer.experiment_name='Eurus-2-7B-SFT-code' \
-    trainer.n_gpus_per_node=8 \
+    trainer.n_gpus_per_node=4 \
     trainer.nnodes=1 \
     trainer.save_freq=64 \
     trainer.test_freq=64 \
+    2>&1 | tee "$LOG_PATH" \
     trainer.total_epochs=15 $@
