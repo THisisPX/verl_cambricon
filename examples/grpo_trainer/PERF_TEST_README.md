@@ -16,9 +16,9 @@
 | 数据 | dapo-math-17k |
 | 奖励 | math_dapo（基于规则判分，匹配 slime 的 deepscaler） |
 
-## 两个测试脚本
+## 三个测试脚本
 
-### 1. 同步测试（Hybrid Engine）
+### 1. 同步-FSDP 版（Hybrid Engine，推荐先跑）
 
 ```bash
 bash examples/grpo_trainer/run_qwen3_4b_fsdp_perf_test.sh
@@ -28,8 +28,21 @@ bash examples/grpo_trainer/run_qwen3_4b_fsdp_perf_test.sh
 - **架构**: FSDP hybrid engine，8 GPU 共享训练和推理
 - **推理后端**: vLLM
 - **对比标的**: slime 同步模式（4 卡训练 + 4 卡推理，串行）
+- **特点**: 最简单、最稳定的配置，verl 官方推荐
 
-### 2. 异步测试（Fully Async Policy）
+### 2. 同步-Megatron 版（训练后端与 slime 一致）
+
+```bash
+bash examples/grpo_trainer/run_qwen3_4b_megatron_perf_test.sh
+```
+
+- **入口**: `verl.trainer.main_ppo`
+- **架构**: Megatron hybrid engine (TP=2 PP=1)，8 GPU 共享
+- **推理后端**: vLLM
+- **对比标的**: slime 同步模式（训练后端同为 Megatron TP=2）
+- **特点**: **训练后端与 slime 一致（同为 Megatron）**，对比更公平。开启 sequence parallel + full recompute 匹配 slime 配置
+
+### 3. 异步-FSDP2 版（Fully Async Policy）
 
 ```bash
 bash examples/grpo_trainer/run_qwen3_4b_fsdp_perf_test_async.sh
@@ -61,13 +74,19 @@ pd.DataFrame(data).to_parquet('/workspace/datasets/dapo-math-17k/train.parquet')
 ## 运行
 
 ```bash
-# 同步测试
+# 1. FSDP 同步（最易跑，推荐先跑这个看是否 OOM）
 TRAIN_FILE=/workspace/datasets/dapo-math-17k/train.parquet \
 TEST_FILE=/workspace/datasets/aime-2024/test.parquet \
 MODEL_PATH=/workspace/models/Qwen3-4B \
 bash examples/grpo_trainer/run_qwen3_4b_fsdp_perf_test.sh
 
-# 异步测试
+# 2. Megatron 同步（训练后端与 slime 一致）
+TRAIN_FILE=/workspace/datasets/dapo-math-17k/train.parquet \
+TEST_FILE=/workspace/datasets/aime-2024/test.parquet \
+MODEL_PATH=/workspace/models/Qwen3-4B \
+bash examples/grpo_trainer/run_qwen3_4b_megatron_perf_test.sh
+
+# 3. FSDP2 异步（4+4 分离对比 async）
 TRAIN_FILE=/workspace/datasets/dapo-math-17k/train.parquet \
 TEST_FILE=/workspace/datasets/aime-2024/test.parquet \
 MODEL_PATH=/workspace/models/Qwen3-4B \
@@ -144,7 +163,7 @@ tensorboard --logdir checkpoints/verl_perf_test/ --port 6006
 
 | 维度 | slime | verl |
 |------|-------|------|
-| **训练后端** | Megatron (TP2+DP2) | FSDP / FSDP2 |
+| **训练后端** | Megatron (TP2+DP2) | FSDP / Megatron (TP2 PP1) / FSDP2 |
 | **推理后端** | SGLang | vLLM |
 | **GPU分配** | 4训练+4推理（分离） | 同步: 8共享 / 异步: 4+4分离 |
 | **权重同步** | 直接 GPU 间传输 | NCCL / checkpoint-engine |
