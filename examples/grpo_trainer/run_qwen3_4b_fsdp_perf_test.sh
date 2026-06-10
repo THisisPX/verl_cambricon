@@ -22,9 +22,9 @@
 set -xeuo pipefail
 
 # ======================== slime-matching defaults ========================
-MODEL_PATH=${MODEL_PATH:-Qwen/Qwen3-4B}
-TRAIN_FILE=${TRAIN_FILE:-/path/to/dapo-math-17k/train.parquet}
-TEST_FILE=${TEST_FILE:-/path/to/aime-2024/test.parquet}
+MODEL_PATH=${MODEL_PATH:-/workspace/volume/distributed-training-softdata/models/Qwen3-4B}
+TRAIN_FILE=${TRAIN_FILE:-/workspace/volume/pengxiong/datasets/dapo-math-17k/dapo-math-17k.parquet}
+TEST_FILE=${TEST_FILE:-/workspace/volume/pengxiong/datasets/aime-2024/aime-2024.parquet}
 NNODES=${NNODES:-1}
 NGPUS_PER_NODE=${NGPUS_PER_NODE:-8}
 
@@ -118,7 +118,7 @@ REF=(
 
 TRAINER=(
     trainer.critic_warmup=0
-    trainer.logger='["console","wandb"]'
+    trainer.logger='["console","tensorboard"]'
     trainer.project_name=${PROJECT_NAME}
     trainer.experiment_name=${EXPERIMENT_NAME}
     trainer.n_gpus_per_node=${NGPUS_PER_NODE}
@@ -131,6 +131,7 @@ TRAINER=(
 )
 
 EXTRA=(
+    reward.num_workers=1
 )
 
 # ======================== launch ========================
