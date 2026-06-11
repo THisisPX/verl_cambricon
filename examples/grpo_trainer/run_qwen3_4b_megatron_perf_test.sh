@@ -36,8 +36,11 @@ PPO_MAX_TOKEN_LEN_PER_GPU=${PPO_MAX_TOKEN_LEN_PER_GPU:-16384}
 
 # --- algorithm ---
 ACTOR_LR=${ACTOR_LR:-1e-6}
-KL_LOSS_COEF=${KL_LOSS_COEF:-0.001}
+KL_LOSS_COEF=${KL_LOSS_COEF:-0.0}
 ENTROPY_COEFF=${ENTROPY_COEFF:-0}
+WEIGHT_DECAY=${WEIGHT_DECAY:-0.1}
+ADAM_BETA1=${ADAM_BETA1:-0.9}
+ADAM_BETA2=${ADAM_BETA2:-0.98}
 
 # --- Megatron parallelism (matching slime: TP=2) ---
 # Qwen3-4B is small enough for TP=2, PP=1
@@ -87,6 +90,8 @@ MODEL=(
 
 ACTOR=(
     actor_rollout_ref.actor.optim.lr=${ACTOR_LR}
+    actor_rollout_ref.actor.optim.weight_decay=${WEIGHT_DECAY}
+    actor_rollout_ref.actor.optim.betas=[${ADAM_BETA1},${ADAM_BETA2}]
     actor_rollout_ref.actor.ppo_mini_batch_size=${PPO_MINI_BATCH_SIZE}
     # Dynamic batch: let Megatron handle micro-batch sizing
     actor_rollout_ref.actor.use_dynamic_bsz=True
@@ -99,11 +104,11 @@ ACTOR=(
     actor_rollout_ref.actor.megatron.tensor_model_parallel_size=${ACTOR_TP}
     actor_rollout_ref.actor.megatron.pipeline_model_parallel_size=${ACTOR_PP}
     # Sequence parallelism (matches slime's --sequence-parallel)
-    +actor_rollout_ref.actor.megatron.sequence_parallel=${SEQUENCE_PARALLEL}
+    ++actor_rollout_ref.actor.megatron.sequence_parallel=${SEQUENCE_PARALLEL}
     # Full recompute (matches slime's --recompute-granularity full --recompute-method uniform)
-    +actor_rollout_ref.actor.megatron.override_transformer_config.recompute_granularity=${RECOMPUTE_GRANULARITY}
-    +actor_rollout_ref.actor.megatron.override_transformer_config.recompute_method=${RECOMPUTE_METHOD}
-    +actor_rollout_ref.actor.megatron.override_transformer_config.recompute_num_layers=${RECOMPUTE_NUM_LAYERS}
+    ++actor_rollout_ref.actor.megatron.override_transformer_config.recompute_granularity=${RECOMPUTE_GRANULARITY}
+    ++actor_rollout_ref.actor.megatron.override_transformer_config.recompute_method=${RECOMPUTE_METHOD}
+    ++actor_rollout_ref.actor.megatron.override_transformer_config.recompute_num_layers=${RECOMPUTE_NUM_LAYERS}
 )
 
 ROLLOUT=(
@@ -111,6 +116,7 @@ ROLLOUT=(
     actor_rollout_ref.rollout.tensor_model_parallel_size=${ROLLOUT_TP}
     actor_rollout_ref.rollout.gpu_memory_utilization=${ROLLOUT_GPU_MEM_UTIL}
     actor_rollout_ref.rollout.n=${ROLLOUT_N}
+    actor_rollout_ref.rollout.max_model_len=9216
     actor_rollout_ref.rollout.log_prob_use_dynamic_bsz=True
     actor_rollout_ref.rollout.log_prob_max_token_len_per_gpu=${PPO_MAX_TOKEN_LEN_PER_GPU}
     actor_rollout_ref.rollout.free_cache_engine=True
