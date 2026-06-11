@@ -40,23 +40,31 @@ def preprocess(raw_path: str, out_path: str, data_source: str):
         })
 
     out_df = pd.DataFrame(records)
-    # Ensure object dtype to prevent numpy wrapping
-    out_df["prompt"] = out_df["prompt"].astype(object)
-    out_df["reward_model"] = out_df["reward_model"].astype(object)
-
     out_df.to_parquet(out_path, index=False)
     print(f"Written {out_path}: {len(out_df)} rows")
 
-    # Verify: read back and check types
-    verify = pd.read_parquet(out_path)
-    row0 = verify.iloc[0]
-    prompt_type = type(row0["prompt"]).__name__
-    prompt_content_type = type(row0["prompt"][0]["content"]).__name__
-    rm_type = type(row0["reward_model"]).__name__
-    print(f"  Verify - prompt type={prompt_type}, content type={prompt_content_type}, reward_model type={rm_type}")
-    assert prompt_type in ("list", "tuple", "np.ndarray"), f"Unexpected prompt type: {prompt_type}"
-    assert prompt_content_type == "str", f"Content should be str, got {prompt_content_type}"
-    print("  OK")
+    # Verify using datasets library (same as verl's RLHFDataset)
+    try:
+        from datasets import Dataset
+        hf_ds = Dataset.from_parquet(out_path)
+        row0 = hf_ds[0]
+        prompt_type = type(row0["prompt"]).__name__
+        prompt_content_type = type(row0["prompt"][0]["content"]).__name__
+        rm_type = type(row0["reward_model"]).__name__
+        print(f"  Verify (datasets) - prompt type={prompt_type}, content type={prompt_content_type}, reward_model type={rm_type}")
+        assert prompt_type == "list", f"Expect list, got {prompt_type}"
+        assert prompt_content_type == "str", f"Expect str, got {prompt_content_type}"
+        assert rm_type == "dict", f"Expect dict, got {rm_type}"
+        print("  OK")
+    except ImportError:
+        # Fallback: verify with pandas
+        verify = pd.read_parquet(out_path)
+        row0 = verify.iloc[0]
+        prompt_type = type(row0["prompt"]).__name__
+        prompt_content_type = type(row0["prompt"][0]["content"]).__name__
+        rm_type = type(row0["reward_model"]).__name__
+        print(f"  Verify (pandas) - prompt type={prompt_type}, content type={prompt_content_type}, reward_model type={rm_type}")
+        print(f"  WARNING: datasets library not available, verify with pandas only")
 
 
 if __name__ == "__main__":
