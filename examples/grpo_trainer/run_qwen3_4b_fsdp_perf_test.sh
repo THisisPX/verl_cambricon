@@ -90,7 +90,7 @@ ACTOR=(
     actor_rollout_ref.actor.fsdp_config.param_offload=False
     actor_rollout_ref.actor.fsdp_config.optimizer_offload=False
     # Dynamic batch: max tokens per GPU must accommodate max_prompt + max_response
-    actor_rollout_ref.actor.ppo_max_token_len_per_gpu=12000
+    actor_rollout_ref.actor.ppo_max_token_len_per_gpu=8000
     actor_rollout_ref.actor.use_dynamic_bsz=True
 )
 
