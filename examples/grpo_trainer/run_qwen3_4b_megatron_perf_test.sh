@@ -30,9 +30,9 @@ TRAIN_BATCH_SIZE=${TRAIN_BATCH_SIZE:-8}
 PPO_MINI_BATCH_SIZE=${PPO_MINI_BATCH_SIZE:-8}
 MAX_PROMPT_LENGTH=${MAX_PROMPT_LENGTH:-1024}
 MAX_RESPONSE_LENGTH=${MAX_RESPONSE_LENGTH:-8192}
-# Token budget per GPU for dynamic batch packing (slime: 4096, effective for
-# max_prompt+max_response=9216 we need ~16384 to fit at least 1 full sequence)
-PPO_MAX_TOKEN_LEN_PER_GPU=${PPO_MAX_TOKEN_LEN_PER_GPU:-16384}
+# Token budget per GPU for dynamic batch packing (12000 is enough for 1 full
+# sequence of 9216 tokens with some headroom)
+PPO_MAX_TOKEN_LEN_PER_GPU=${PPO_MAX_TOKEN_LEN_PER_GPU:-12000}
 
 # --- algorithm ---
 ACTOR_LR=${ACTOR_LR:-1e-6}
@@ -50,7 +50,8 @@ ACTOR_PP=${ACTOR_PP:-1}
 
 # --- rollout (vLLM) ---
 ROLLOUT_TP=${ROLLOUT_TP:-2}
-ROLLOUT_GPU_MEM_UTIL=${ROLLOUT_GPU_MEM_UTIL:-0.45}
+# Lower gpu_memory_util than FSDP because Megatron training uses more GPU memory
+ROLLOUT_GPU_MEM_UTIL=${ROLLOUT_GPU_MEM_UTIL:-0.3}
 ROLLOUT_N=${ROLLOUT_N:-16}
 
 # --- Megatron-specific: sequence parallel + full recompute (matching slime) ---
