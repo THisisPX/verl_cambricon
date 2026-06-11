@@ -51,7 +51,7 @@ ACTOR_PP=${ACTOR_PP:-1}
 # --- rollout (vLLM) ---
 ROLLOUT_TP=${ROLLOUT_TP:-2}
 # Lower gpu_memory_util than FSDP because Megatron training uses more GPU memory
-ROLLOUT_GPU_MEM_UTIL=${ROLLOUT_GPU_MEM_UTIL:-0.3}
+ROLLOUT_GPU_MEM_UTIL=${ROLLOUT_GPU_MEM_UTIL:-0.2}
 ROLLOUT_N=${ROLLOUT_N:-16}
 
 # --- Megatron-specific: sequence parallel + full recompute (matching slime) ---
@@ -118,6 +118,7 @@ ROLLOUT=(
     actor_rollout_ref.rollout.gpu_memory_utilization=${ROLLOUT_GPU_MEM_UTIL}
     actor_rollout_ref.rollout.n=${ROLLOUT_N}
     actor_rollout_ref.rollout.max_model_len=9216
+    actor_rollout_ref.rollout.max_num_seqs=256
     actor_rollout_ref.rollout.log_prob_use_dynamic_bsz=True
     actor_rollout_ref.rollout.log_prob_max_token_len_per_gpu=${PPO_MAX_TOKEN_LEN_PER_GPU}
     actor_rollout_ref.rollout.free_cache_engine=True
