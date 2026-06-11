@@ -40,10 +40,17 @@ LOG_PROB_MICRO_BATCH_SIZE_PER_GPU=${LOG_PROB_MICRO_BATCH_SIZE_PER_GPU:-1}
 MAX_PROMPT_LENGTH=${MAX_PROMPT_LENGTH:-1024}
 MAX_RESPONSE_LENGTH=${MAX_RESPONSE_LENGTH:-8192}
 
-# --- algorithm ---
+# --- algorithm (matching slime) ---
+# slime: kl_loss_coef=0.0, entropy_coef=0.0, eps_clip=0.2/0.28
 ACTOR_LR=${ACTOR_LR:-1e-6}
-KL_LOSS_COEF=${KL_LOSS_COEF:-0.001}
+KL_LOSS_COEF=${KL_LOSS_COEF:-0.0}
 ENTROPY_COEFF=${ENTROPY_COEFF:-0}
+
+# --- optimizer (matching slime) ---
+# slime: adam, lr=1e-6, constant, weight_decay=0.1, betas=(0.9, 0.98)
+WEIGHT_DECAY=${WEIGHT_DECAY:-0.1}
+ADAM_BETA1=${ADAM_BETA1:-0.9}
+ADAM_BETA2=${ADAM_BETA2:-0.98}
 
 # --- rollout (vLLM) ---
 ROLLOUT_TP=${ROLLOUT_TP:-2}
@@ -81,6 +88,8 @@ MODEL=(
 
 ACTOR=(
     actor_rollout_ref.actor.optim.lr=${ACTOR_LR}
+    actor_rollout_ref.actor.optim.weight_decay=${WEIGHT_DECAY}
+    actor_rollout_ref.actor.optim.betas=[${ADAM_BETA1},${ADAM_BETA2}]
     actor_rollout_ref.actor.ppo_mini_batch_size=${PPO_MINI_BATCH_SIZE}
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=${PPO_MICRO_BATCH_SIZE_PER_GPU}
     actor_rollout_ref.actor.use_kl_loss=True
@@ -99,6 +108,8 @@ ROLLOUT=(
     actor_rollout_ref.rollout.tensor_model_parallel_size=${ROLLOUT_TP}
     actor_rollout_ref.rollout.name=vllm
     actor_rollout_ref.rollout.gpu_memory_utilization=${ROLLOUT_GPU_MEM_UTIL}
+    # Limit max_model_len to prevent OOM: max_prompt(1024) + max_response(8192) = 9216
+    actor_rollout_ref.rollout.max_model_len=9216
     actor_rollout_ref.rollout.enable_chunked_prefill=False
     actor_rollout_ref.rollout.enforce_eager=False
     actor_rollout_ref.rollout.free_cache_engine=True
