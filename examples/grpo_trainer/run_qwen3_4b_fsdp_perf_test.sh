@@ -28,23 +28,23 @@ TEST_FILE=${TEST_FILE:-/workspace/volume/pengxiong/datasets/aime-2024/aime-2024-
 NNODES=${NNODES:-1}
 NGPUS_PER_NODE=${NGPUS_PER_NODE:-8}
 
-# --- batch / rollout (matching slime's parameters) ---
+# --- batch / rollout (matching slime) ---
 # slime: rollout_batch_size=8, n_samples=16, global_batch_size=32
-# verl:  train_batch_size = prompts per step
-#        rollout.n = responses per prompt
-#        total trajectories per step = train_batch_size * n
 TRAIN_BATCH_SIZE=${TRAIN_BATCH_SIZE:-8}
-PPO_MINI_BATCH_SIZE=${PPO_MINI_BATCH_SIZE:-8}
+PPO_MINI_BATCH_SIZE=${PPO_MINI_BATCH_SIZE:-32}
 PPO_MICRO_BATCH_SIZE_PER_GPU=${PPO_MICRO_BATCH_SIZE_PER_GPU:-1}
 LOG_PROB_MICRO_BATCH_SIZE_PER_GPU=${LOG_PROB_MICRO_BATCH_SIZE_PER_GPU:-1}
 MAX_PROMPT_LENGTH=${MAX_PROMPT_LENGTH:-1024}
 MAX_RESPONSE_LENGTH=${MAX_RESPONSE_LENGTH:-8192}
+# Must be >= max_prompt(1024) + max_response(8192) = 9216
+PPO_MAX_TOKEN_LEN_PER_GPU=${PPO_MAX_TOKEN_LEN_PER_GPU:-12288}
 
-# --- algorithm (matching slime) ---
-# slime: kl_loss_coef=0.0, entropy_coef=0.0, eps_clip=0.2/0.28
+# --- algorithm (matching slime: no KL loss, no entropy bonus) ---
 ACTOR_LR=${ACTOR_LR:-1e-6}
-KL_LOSS_COEF=${KL_LOSS_COEF:-0.0}
 ENTROPY_COEFF=${ENTROPY_COEFF:-0}
+# Dual-clip PPO (matching slime: --eps-clip 0.2 --eps-clip-high 0.28)
+CLIP_RATIO_LOW=${CLIP_RATIO_LOW:-0.2}
+CLIP_RATIO_HIGH=${CLIP_RATIO_HIGH:-0.28}
 
 # --- optimizer (matching slime) ---
 # slime: adam, lr=1e-6, constant, weight_decay=0.1, betas=(0.9, 0.98)
@@ -54,15 +54,13 @@ ADAM_BETA2=${ADAM_BETA2:-0.98}
 
 # --- rollout (vLLM) ---
 ROLLOUT_TP=${ROLLOUT_TP:-2}
-# Lower mem util because FSDP hybrid engine shares GPUs with training
 ROLLOUT_GPU_MEM_UTIL=${ROLLOUT_GPU_MEM_UTIL:-0.45}
 ROLLOUT_N=${ROLLOUT_N:-16}
 
 # --- experiment tracking ---
 PROJECT_NAME=${PROJECT_NAME:-verl_perf_test}
-EXPERIMENT_NAME=${EXPERIMENT_NAME:-qwen3_4b_grpo_n16_resp8192}
-# Disable checkpointing and validation for perf test
-TOTAL_TRAINING_STEPS=${TOTAL_TRAINING_STEPS:-15}
+EXPERIMENT_NAME=${EXPERIMENT_NAME:-qwen3_4b_grpo_n16_resp8192_fsdp}
+TOTAL_TRAINING_STEPS=${TOTAL_TRAINING_STEPS:-8}   # slime: --num-rollout 8
 SAVE_FREQ=${SAVE_FREQ:-9999}
 TEST_FREQ=${TEST_FREQ:-9999}
 
@@ -88,18 +86,22 @@ MODEL=(
 
 ACTOR=(
     actor_rollout_ref.actor.optim.lr=${ACTOR_LR}
+    actor_rollout_ref.actor.optim.lr_decay_style=constant
     actor_rollout_ref.actor.optim.weight_decay=${WEIGHT_DECAY}
     actor_rollout_ref.actor.optim.betas=[${ADAM_BETA1},${ADAM_BETA2}]
     actor_rollout_ref.actor.ppo_mini_batch_size=${PPO_MINI_BATCH_SIZE}
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=${PPO_MICRO_BATCH_SIZE_PER_GPU}
-    actor_rollout_ref.actor.use_kl_loss=True
-    actor_rollout_ref.actor.kl_loss_coef=${KL_LOSS_COEF}
-    actor_rollout_ref.actor.kl_loss_type=low_var_kl
+    # No KL loss — matching slime (--kl-loss-coef 0.00, no ref model needed)
+    actor_rollout_ref.actor.use_kl_loss=False
     actor_rollout_ref.actor.entropy_coeff=${ENTROPY_COEFF}
+    # Dual-clip PPO (matching slime: --eps-clip 0.2 --eps-clip-high 0.28)
+    actor_rollout_ref.actor.clip_ratio_low=${CLIP_RATIO_LOW}
+    actor_rollout_ref.actor.clip_ratio_high=${CLIP_RATIO_HIGH}
+    actor_rollout_ref.actor.loss_agg_mode=token-mean
     actor_rollout_ref.actor.fsdp_config.param_offload=False
     actor_rollout_ref.actor.fsdp_config.optimizer_offload=False
-    # Dynamic batch: max tokens per GPU must accommodate max_prompt + max_response
-    actor_rollout_ref.actor.ppo_max_token_len_per_gpu=8000
+    # Must accommodate max_prompt + max_response = 9216
+    actor_rollout_ref.actor.ppo_max_token_len_per_gpu=${PPO_MAX_TOKEN_LEN_PER_GPU}
     actor_rollout_ref.actor.use_dynamic_bsz=True
 )
 
@@ -110,21 +112,15 @@ ROLLOUT=(
     actor_rollout_ref.rollout.gpu_memory_utilization=${ROLLOUT_GPU_MEM_UTIL}
     # Limit max_model_len to prevent OOM: max_prompt(1024) + max_response(8192) = 9216
     actor_rollout_ref.rollout.max_model_len=9216
+    actor_rollout_ref.rollout.max_num_seqs=32
     actor_rollout_ref.rollout.enable_chunked_prefill=False
     actor_rollout_ref.rollout.enforce_eager=False
     actor_rollout_ref.rollout.free_cache_engine=True
     actor_rollout_ref.rollout.log_prob_use_dynamic_bsz=True
-    actor_rollout_ref.rollout.log_prob_max_token_len_per_gpu=12000
+    actor_rollout_ref.rollout.log_prob_max_token_len_per_gpu=${PPO_MAX_TOKEN_LEN_PER_GPU}
     actor_rollout_ref.rollout.n=${ROLLOUT_N}
     # vLLM-specific: larger bucket for faster weight sync
     actor_rollout_ref.rollout.checkpoint_engine.update_weights_bucket_megabytes=4096
-)
-
-REF=(
-    actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=${LOG_PROB_MICRO_BATCH_SIZE_PER_GPU}
-    actor_rollout_ref.ref.fsdp_config.param_offload=True
-    actor_rollout_ref.ref.log_prob_use_dynamic_bsz=True
-    actor_rollout_ref.ref.log_prob_max_token_len_per_gpu=12000
 )
 
 TRAINER=(
@@ -151,7 +147,6 @@ python3 -m verl.trainer.main_ppo \
     "${MODEL[@]}" \
     "${ACTOR[@]}" \
     "${ROLLOUT[@]}" \
-    "${REF[@]}" \
     "${TRAINER[@]}" \
     "${EXTRA[@]}" \
     "$@"

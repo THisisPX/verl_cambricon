@@ -35,8 +35,8 @@ GEN_BATCH_SIZE=1             # only 1 supported for async
 N_RESP_PER_PROMPT=${N_RESP_PER_PROMPT:-16}
 MAX_PROMPT_LENGTH=${MAX_PROMPT_LENGTH:-1024}
 MAX_RESPONSE_LENGTH=${MAX_RESPONSE_LENGTH:-8192}
-# Match slime: max_tokens_per_gpu=4096, prevents memory spikes with 8192-token responses
-PPO_MAX_TOKEN_LEN_PER_GPU=${PPO_MAX_TOKEN_LEN_PER_GPU:-4096}
+# Must accommodate max_prompt(1024) + max_response(8192) = 9216 tokens per sequence
+PPO_MAX_TOKEN_LEN_PER_GPU=${PPO_MAX_TOKEN_LEN_PER_GPU:-12288}
 
 # --- algorithm (matching slime: no KL loss, no KL penalty) ---
 ACTOR_LR=${ACTOR_LR:-1e-6}
