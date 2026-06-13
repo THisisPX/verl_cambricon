@@ -49,10 +49,13 @@ ADAM_BETA2=${ADAM_BETA2:-0.98}
 ACTOR_TP=${ACTOR_TP:-2}
 ACTOR_PP=${ACTOR_PP:-1}
 
+# Megatron offloading: essential for HybridEngine — frees GPU memory for vLLM wake_up
+# (same as slime's forced --offload in colocate mode)
+OFFLOAD=${OFFLOAD:-True}
+
 # --- rollout (vLLM) ---
 ROLLOUT_TP=${ROLLOUT_TP:-2}
-# Lower gpu_memory_util than FSDP because Megatron training uses more GPU memory
-ROLLOUT_GPU_MEM_UTIL=${ROLLOUT_GPU_MEM_UTIL:-0.2}
+ROLLOUT_GPU_MEM_UTIL=${ROLLOUT_GPU_MEM_UTIL:-0.5}
 ROLLOUT_N=${ROLLOUT_N:-16}
 
 # --- Megatron-specific: sequence parallel + full recompute (matching slime) ---
@@ -110,6 +113,10 @@ ACTOR=(
     # Megatron parallelism (TP=2 matches slime)
     actor_rollout_ref.actor.megatron.tensor_model_parallel_size=${ACTOR_TP}
     actor_rollout_ref.actor.megatron.pipeline_model_parallel_size=${ACTOR_PP}
+    # Offloading: essential for HybridEngine to free GPU memory for vLLM wake_up
+    actor_rollout_ref.actor.megatron.param_offload=${OFFLOAD}
+    actor_rollout_ref.actor.megatron.grad_offload=${OFFLOAD}
+    actor_rollout_ref.actor.megatron.optimizer_offload=${OFFLOAD}
     # Sequence parallelism (matches slime's --sequence-parallel)
     ++actor_rollout_ref.actor.megatron.sequence_parallel=${SEQUENCE_PARALLEL}
     # Full recompute (matches slime's --recompute-granularity full --recompute-method uniform)
@@ -128,7 +135,7 @@ ROLLOUT=(
     actor_rollout_ref.rollout.log_prob_use_dynamic_bsz=True
     actor_rollout_ref.rollout.log_prob_max_token_len_per_gpu=${PPO_MAX_TOKEN_LEN_PER_GPU}
     actor_rollout_ref.rollout.free_cache_engine=True
-    actor_rollout_ref.rollout.enforce_eager=False
+    actor_rollout_ref.rollout.enforce_eager=True
 )
 
 TRAINER=(
