@@ -31,7 +31,7 @@ NGPUS_PER_NODE=${NGPUS_PER_NODE:-8}
 # --- batch / rollout (matching slime) ---
 # slime: rollout_batch_size=8, n_samples=16, global_batch_size=32
 TRAIN_BATCH_SIZE=${TRAIN_BATCH_SIZE:-8}
-PPO_MINI_BATCH_SIZE=${PPO_MINI_BATCH_SIZE:-32}
+PPO_MINI_BATCH_SIZE=${PPO_MINI_BATCH_SIZE:-8} # slime: --global-batch-size 32, but verl multiplies by rollout.n=16
 PPO_MICRO_BATCH_SIZE_PER_GPU=${PPO_MICRO_BATCH_SIZE_PER_GPU:-1}
 LOG_PROB_MICRO_BATCH_SIZE_PER_GPU=${LOG_PROB_MICRO_BATCH_SIZE_PER_GPU:-1}
 MAX_PROMPT_LENGTH=${MAX_PROMPT_LENGTH:-1024}

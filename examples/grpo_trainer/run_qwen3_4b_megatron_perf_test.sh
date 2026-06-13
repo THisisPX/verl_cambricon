@@ -27,7 +27,7 @@ INFER_BACKEND=${INFER_BACKEND:-vllm}
 
 # --- batch / rollout (matching slime) ---
 TRAIN_BATCH_SIZE=${TRAIN_BATCH_SIZE:-8}        # slime: --rollout-batch-size 8
-PPO_MINI_BATCH_SIZE=${PPO_MINI_BATCH_SIZE:-32} # slime: --global-batch-size 32
+PPO_MINI_BATCH_SIZE=${PPO_MINI_BATCH_SIZE:-8} # slime: --global-batch-size 32, but verl multiplies by rollout.n=16
 MAX_PROMPT_LENGTH=${MAX_PROMPT_LENGTH:-1024}
 MAX_RESPONSE_LENGTH=${MAX_RESPONSE_LENGTH:-8192}
 # Must accommodate max_prompt(1024) + max_response(8192) = 9216 tokens per sequence
