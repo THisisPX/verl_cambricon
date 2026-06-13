@@ -15,10 +15,12 @@ import json
 import pandas as pd
 
 
-def preprocess(raw_path: str, out_path: str, data_source: str):
+def preprocess(raw_path: str, out_path: str, data_source: str, system_prompt: str = None):
     """Read raw parquet (columns: prompt, label) and write verl-format parquet."""
     df = pd.read_parquet(raw_path)
     print(f"Reading {raw_path}: {len(df)} rows, columns={df.columns.tolist()}")
+    if system_prompt:
+        print(f"Using system prompt: {system_prompt}")
 
     records = []
     for _, row in df.iterrows():
@@ -27,7 +29,10 @@ def preprocess(raw_path: str, out_path: str, data_source: str):
         label_text = str(row["label"]) if not isinstance(row["label"], str) else row["label"]
 
         # Build prompt as native Python list of dicts
-        prompt = [{"role": "user", "content": prompt_text}]
+        prompt = []
+        if system_prompt:
+            prompt.append({"role": "system", "content": system_prompt})
+        prompt.append({"role": "user", "content": prompt_text})
 
         # Build reward_model as native Python dict
         reward_model = {"style": "rule", "ground_truth": label_text}
@@ -72,9 +77,11 @@ if __name__ == "__main__":
     test_raw = os.environ.get("TEST_RAW", "/workspace/volume/pengxiong/datasets/aime-2024/aime-2024.parquet")
     train_out = os.environ.get("TRAIN_OUT", "/workspace/volume/pengxiong/datasets/dapo-math-17k/dapo-math-17k-verl.parquet")
     test_out = os.environ.get("TEST_OUT", "/workspace/volume/pengxiong/datasets/aime-2024/aime-2024-verl.parquet")
+    # Match slime: --rollout-system-prompt "Please reason step by step, and put your final answer in \boxed{}."
+    system_prompt = os.environ.get("SYSTEM_PROMPT", None)
 
-    preprocess(train_raw, train_out, "math_dapo")
-    preprocess(test_raw, test_out, "aime2024")
+    preprocess(train_raw, train_out, "math_dapo", system_prompt)
+    preprocess(test_raw, test_out, "aime2024", system_prompt)
 
     print("\nDone! Run training with:")
     print(f"  TRAIN_FILE={train_out} \\")

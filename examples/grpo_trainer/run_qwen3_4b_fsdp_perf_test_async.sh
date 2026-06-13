@@ -35,17 +35,16 @@ GEN_BATCH_SIZE=1             # only 1 supported for async
 N_RESP_PER_PROMPT=${N_RESP_PER_PROMPT:-16}
 MAX_PROMPT_LENGTH=${MAX_PROMPT_LENGTH:-1024}
 MAX_RESPONSE_LENGTH=${MAX_RESPONSE_LENGTH:-8192}
-PPO_MAX_TOKEN_LEN_PER_GPU=${PPO_MAX_TOKEN_LEN_PER_GPU:-12000}
+# Match slime: max_tokens_per_gpu=4096, prevents memory spikes with 8192-token responses
+PPO_MAX_TOKEN_LEN_PER_GPU=${PPO_MAX_TOKEN_LEN_PER_GPU:-4096}
 
-# --- algorithm ---
+# --- algorithm (matching slime: no KL loss, no KL penalty) ---
 ACTOR_LR=${ACTOR_LR:-1e-6}
-KL_COEF=0.0
-KL_LOSS_COEF=${KL_LOSS_COEF:-0.0}
 ENTROPY_COEFF=0
 CLIP_RATIO_LOW=0.2
 CLIP_RATIO_HIGH=0.28
 USE_KL_IN_REWARD=False
-USE_KL_LOSS=True
+USE_KL_LOSS=False
 WEIGHT_DECAY=${WEIGHT_DECAY:-0.1}
 ADAM_BETA1=${ADAM_BETA1:-0.9}
 ADAM_BETA2=${ADAM_BETA2:-0.98}
@@ -69,7 +68,7 @@ infer_ppo_max_token_len=${PPO_MAX_TOKEN_LEN_PER_GPU}
 # --- experiment tracking ---
 PROJECT_NAME=${PROJECT_NAME:-verl_perf_test}
 EXPERIMENT_NAME=${EXPERIMENT_NAME:-qwen3_4b_grpo_n16_resp8192_megatron_async}
-TOTAL_ROLLOUT_STEPS=${TOTAL_ROLLOUT_STEPS:-20}
+TOTAL_ROLLOUT_STEPS=${TOTAL_ROLLOUT_STEPS:-8}   # match slime: --num-rollout 8
 TEST_FREQ=${TEST_FREQ:-9999}
 SAVE_FREQ=${SAVE_FREQ:--1}
 
@@ -96,19 +95,16 @@ python3 -m verl.experimental.fully_async_policy.fully_async_main \
     data.truncation='error' \
     algorithm.adv_estimator=grpo \
     algorithm.use_kl_in_reward="${USE_KL_IN_REWARD}" \
-    algorithm.kl_ctrl.kl_coef="${KL_COEF}" \
     algorithm.rollout_correction.bypass_mode=True \
     actor_rollout_ref.rollout.n="${N_RESP_PER_PROMPT}" \
     actor_rollout_ref.model.path="${MODEL_PATH}" \
     actor_rollout_ref.model.use_remove_padding=True \
     actor_rollout_ref.hybrid_engine=False \
     actor_rollout_ref.actor.use_kl_loss="${USE_KL_LOSS}" \
-    actor_rollout_ref.actor.kl_loss_coef="${KL_LOSS_COEF}" \
-    actor_rollout_ref.actor.kl_loss_type=low_var_kl \
     actor_rollout_ref.actor.entropy_coeff="${ENTROPY_COEFF}" \
     actor_rollout_ref.actor.use_rollout_log_probs=True \
     actor_rollout_ref.actor.use_dynamic_bsz="${use_dynamic_bsz}" \
-    actor_rollout_ref.actor.ppo_mini_batch_size=8 \
+    actor_rollout_ref.actor.ppo_mini_batch_size=32 \
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=2 \
     actor_rollout_ref.actor.ppo_max_token_len_per_gpu="${actor_ppo_max_token_len}" \
     actor_rollout_ref.actor.clip_ratio_low="${CLIP_RATIO_LOW}" \
@@ -130,16 +126,12 @@ python3 -m verl.experimental.fully_async_policy.fully_async_main \
     +actor_rollout_ref.actor.megatron.override_transformer_config.recompute_granularity=full \
     +actor_rollout_ref.actor.megatron.override_transformer_config.recompute_method=uniform \
     +actor_rollout_ref.actor.megatron.override_transformer_config.recompute_num_layers=1 \
-    actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=2 \
-    actor_rollout_ref.ref.log_prob_max_token_len_per_gpu="${infer_ppo_max_token_len}" \
-    actor_rollout_ref.ref.megatron.tensor_model_parallel_size="${TRAIN_TP}" \
-    actor_rollout_ref.ref.megatron.pipeline_model_parallel_size="${TRAIN_PP}" \
-    actor_rollout_ref.ref.megatron.param_offload="${OFFLOAD}" \
     actor_rollout_ref.rollout.name=vllm \
     actor_rollout_ref.rollout.mode=async \
     actor_rollout_ref.rollout.tensor_model_parallel_size="${ROLLOUT_TP}" \
     actor_rollout_ref.rollout.gpu_memory_utilization="${ROLLOUT_GPU_MEM_UTIL}" \
     actor_rollout_ref.rollout.max_model_len=9216 \
+    actor_rollout_ref.rollout.max_num_seqs=32 \
     actor_rollout_ref.rollout.enforce_eager=True \
     actor_rollout_ref.rollout.enable_chunked_prefill=True \
     actor_rollout_ref.rollout.free_cache_engine=True \
