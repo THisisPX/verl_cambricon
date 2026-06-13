@@ -151,6 +151,13 @@ EXTRA=(
     model_engine=megatron
 )
 
+# ======================== log dir ========================
+LOG_DIR=${LOG_DIR:-"logs/${PROJECT_NAME}/${EXPERIMENT_NAME}"}
+mkdir -p "${LOG_DIR}"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+LOG_FILE="${LOG_DIR}/train_${TIMESTAMP}.log"
+echo "Logging to: ${LOG_FILE}"
+
 # ======================== launch ========================
 python3 -m verl.trainer.main_ppo \
     "${DATA[@]}" \
@@ -159,4 +166,4 @@ python3 -m verl.trainer.main_ppo \
     "${ROLLOUT[@]}" \
     "${TRAINER[@]}" \
     "${EXTRA[@]}" \
-    "$@"
+    "$@" 2>&1 | tee "${LOG_FILE}"

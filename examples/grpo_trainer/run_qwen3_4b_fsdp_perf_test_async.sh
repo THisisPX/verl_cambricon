@@ -78,6 +78,13 @@ TRIGGER_PARAM_SYNC_STEP=${TRIGGER_PARAM_SYNC_STEP:-4}
 REQUIRE_BATCHES=${REQUIRE_BATCHES:-1}
 PARTIAL_ROLLOUT=${PARTIAL_ROLLOUT:-True}
 
+# ======================== log dir ========================
+LOG_DIR=${LOG_DIR:-"logs/${PROJECT_NAME}/${EXPERIMENT_NAME}"}
+mkdir -p "${LOG_DIR}"
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+LOG_FILE="${LOG_DIR}/train_${TIMESTAMP}.log"
+echo "Logging to: ${LOG_FILE}"
+
 # ======================== launch ========================
 # Note: Hydra @hydra.main decorator in fully_async_main.py resolves
 # config_path relative to the file, so --config-path is not needed
@@ -165,4 +172,4 @@ python3 -m verl.experimental.fully_async_policy.fully_async_main \
     async_training.trigger_parameter_sync_step="${TRIGGER_PARAM_SYNC_STEP}" \
     async_training.require_batches="${REQUIRE_BATCHES}" \
     async_training.partial_rollout="${PARTIAL_ROLLOUT}" \
-    "$@"
+    "$@" 2>&1 | tee "${LOG_FILE}"
