@@ -112,7 +112,7 @@ python3 -m verl.experimental.fully_async_policy.fully_async_main \
     actor_rollout_ref.actor.clip_ratio_c=10.0 \
     actor_rollout_ref.actor.loss_agg_mode="token-mean" \
     actor_rollout_ref.actor.optim.lr="${ACTOR_LR}" \
-    actor_rollout_ref.actor.optim.lr_warmup_steps=10 \
+    actor_rollout_ref.actor.optim.lr_warmup_steps=0 \
     actor_rollout_ref.actor.optim.lr_decay_style='constant' \
     actor_rollout_ref.actor.optim.weight_decay="${WEIGHT_DECAY}" \
     actor_rollout_ref.actor.optim.betas="[${ADAM_BETA1},${ADAM_BETA2}]" \
