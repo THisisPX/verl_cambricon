@@ -30,8 +30,8 @@ TRAIN_BATCH_SIZE=${TRAIN_BATCH_SIZE:-8}        # slime: --rollout-batch-size 8
 PPO_MINI_BATCH_SIZE=${PPO_MINI_BATCH_SIZE:-32} # slime: --global-batch-size 32
 MAX_PROMPT_LENGTH=${MAX_PROMPT_LENGTH:-1024}
 MAX_RESPONSE_LENGTH=${MAX_RESPONSE_LENGTH:-8192}
-# slime: --max-tokens-per-gpu 4096
-PPO_MAX_TOKEN_LEN_PER_GPU=${PPO_MAX_TOKEN_LEN_PER_GPU:-4096}
+# Must accommodate max_prompt(1024) + max_response(8192) = 9216 tokens per sequence
+PPO_MAX_TOKEN_LEN_PER_GPU=${PPO_MAX_TOKEN_LEN_PER_GPU:-12288}
 
 # --- algorithm (matching slime: no KL loss, no entropy bonus) ---
 ACTOR_LR=${ACTOR_LR:-1e-6}
