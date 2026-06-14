@@ -5,11 +5,10 @@
 #   Slime: 8×A100 40GB, Megatron TP4×DP2 colocate + SGLang 4engines×TP2
 #   Verl:  8×A100 40GB, Megatron TP2×DP4 hybrid engine + vLLM
 #
-# Both frameworks now use the same hardware setup (8GPU shared, offload switching).
+# Both frameworks now use identical hardware setup (8GPU shared, offload switching).
 #
-# Key differences to note in comparison:
-#   - Colocate: both 8GPU shared, offload switching
-#   - Inference: slime=SGLang (mem=0.35, 4engines×TP2), verl=vLLM (mem=0.35, TP4)
+# Remaining differences:
+#   - Inference: slime=SGLang (mem=0.35, 4engines×TP2), verl=vLLM (mem=0.35, TP2)
 #   - Loss agg: slime sum-of-sample-mean, verl token-mean (same gradient direction)
 #   - CUDA graph: slime on (max_bs=8), verl off (enforce_eager=True)
 #
@@ -49,9 +48,10 @@ ADAM_BETA1=${ADAM_BETA1:-0.9}
 ADAM_BETA2=${ADAM_BETA2:-0.98}
 
 # --- Megatron parallelism ---
-# TP=4 matches slime colocate: A100 40G colocate needs TP=4 to avoid OOM
-# Total train GPUs = TP * PP * DP = 4 * 1 * 2 = 8 (hybrid engine)
-ACTOR_TP=${ACTOR_TP:-4}
+# TP=2 matches slime's per-engine TP (4 engines × TP2)
+# With offloading, TP=2 should fit in A100 40GB colocate
+# Total train GPUs = TP * PP * DP = 2 * 1 * 4 = 8 (hybrid engine)
+ACTOR_TP=${ACTOR_TP:-2}
 ACTOR_PP=${ACTOR_PP:-1}
 
 # Megatron offloading: essential for HybridEngine — frees GPU memory for vLLM wake_up
@@ -59,8 +59,8 @@ ACTOR_PP=${ACTOR_PP:-1}
 OFFLOAD=${OFFLOAD:-True}
 
 # --- rollout (vLLM) ---
-# Must match actor TP for HybridEngine weight resharding
-ROLLOUT_TP=${ROLLOUT_TP:-4}
+# TP=2 matches slime's per-engine TP (4 engines × TP2)
+ROLLOUT_TP=${ROLLOUT_TP:-2}
 # Colocate: inference shares GPU with training, lower mem to avoid OOM (matching slime 0.35)
 ROLLOUT_GPU_MEM_UTIL=${ROLLOUT_GPU_MEM_UTIL:-0.35}
 ROLLOUT_N=${ROLLOUT_N:-16}
@@ -117,7 +117,7 @@ ACTOR=(
     actor_rollout_ref.actor.clip_ratio_low=${CLIP_RATIO_LOW}
     actor_rollout_ref.actor.clip_ratio_high=${CLIP_RATIO_HIGH}
     actor_rollout_ref.actor.loss_agg_mode=token-mean
-    # Megatron parallelism (TP=4 matches slime colocate)
+    # Megatron parallelism (TP=2, 4 engines × TP2 matches slime)
     actor_rollout_ref.actor.megatron.tensor_model_parallel_size=${ACTOR_TP}
     actor_rollout_ref.actor.megatron.pipeline_model_parallel_size=${ACTOR_PP}
     # Offloading: essential for HybridEngine to free GPU memory for vLLM wake_up
