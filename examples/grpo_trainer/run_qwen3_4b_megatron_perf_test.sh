@@ -21,6 +21,10 @@
 set -xeuo pipefail
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 
+# Suppress vLLM multiprocessing shutdown noise and Python 3.12 resource_tracker warnings
+export VLLM_LOGGING_LEVEL=ERROR
+export PYTHONWARNINGS=ignore
+
 # ======================== slime-matching defaults ========================
 MODEL_PATH=${MODEL_PATH:-/workspace/volume/distributed-training-softdata/models/Qwen3-4B}
 TRAIN_FILE=${TRAIN_FILE:-/workspace/volume/pengxiong/datasets/dapo-math-17k/dapo-math-17k-verl.parquet}
@@ -93,6 +97,8 @@ DATA=(
     data.max_response_length=${MAX_RESPONSE_LENGTH}
     data.filter_overlong_prompts=True
     data.truncation='error'
+    data.dataloader_num_workers=0
+    data.val_batch_size=8
 )
 
 MODEL=(
