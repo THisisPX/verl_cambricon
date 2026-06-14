@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
-# Performance Test (Megatron): Qwen3-4B | GRPO | Megatron + vLLM
+# Performance Test (Megatron): Qwen3-4B | GRPO | Megatron + vLLM (colocate)
 #
-# Megatron-based version for comparison with slime framework.
-# Slime uses Megatron TP2×DP2 (4 GPUs) + SGLang (4 GPUs).
-# Verl Megatron uses hybrid engine (all 8 GPUs, TP2×DP4).
+# Designed to compare with slime's colocate 8GPU mode:
+#   Slime: 8×A100 40GB, Megatron TP4×DP2 colocate + SGLang 4engines×TP2
+#   Verl:  8×A100 40GB, Megatron TP2×DP4 hybrid engine + vLLM
 #
-# This uses the SAME training backend (Megatron) as slime, making it
-# a more apples-to-apples comparison than the FSDP version.
+# Both frameworks now use the same hardware setup (8GPU shared, offload switching).
+#
+# Key differences to note in comparison:
+#   - Training TP: slime=4 (A100 40G OOM at TP2), verl=2
+#   - Inference: slime=SGLang (mem=0.35), verl=vLLM (mem=0.35)
+#   - Loss agg: slime sum-of-sample-mean, verl token-mean (same gradient direction)
+#   - CUDA graph: slime on (max_bs=8), verl off (enforce_eager=True)
 #
 # Usage:
 #   bash examples/grpo_trainer/run_qwen3_4b_megatron_perf_test.sh
@@ -43,9 +48,10 @@ WEIGHT_DECAY=${WEIGHT_DECAY:-0.1}
 ADAM_BETA1=${ADAM_BETA1:-0.9}
 ADAM_BETA2=${ADAM_BETA2:-0.98}
 
-# --- Megatron parallelism (matching slime: TP=2) ---
-# Qwen3-4B is small enough for TP=2, PP=1
-# Total train GPUs = TP * PP * DP = 2 * 1 * 4 = 8 (hybrid engine)
+# --- Megatron parallelism ---
+# Slime colocate uses TP=4 (A100 40G OOM at TP=2 in colocate mode)
+# Verl hybrid engine stays at TP=2 (offloading frees enough memory for vLLM wake_up)
+# Total train GPUs = TP * PP * DP = 2 * 1 * 4 = 8
 ACTOR_TP=${ACTOR_TP:-2}
 ACTOR_PP=${ACTOR_PP:-1}
 
@@ -55,7 +61,8 @@ OFFLOAD=${OFFLOAD:-True}
 
 # --- rollout (vLLM) ---
 ROLLOUT_TP=${ROLLOUT_TP:-2}
-ROLLOUT_GPU_MEM_UTIL=${ROLLOUT_GPU_MEM_UTIL:-0.5}
+# Colocate: inference shares GPU with training, lower mem to avoid OOM (matching slime 0.35)
+ROLLOUT_GPU_MEM_UTIL=${ROLLOUT_GPU_MEM_UTIL:-0.35}
 ROLLOUT_N=${ROLLOUT_N:-16}
 
 # --- Megatron-specific: sequence parallel + full recompute (matching slime) ---
