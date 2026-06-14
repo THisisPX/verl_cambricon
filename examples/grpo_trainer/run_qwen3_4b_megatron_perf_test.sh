@@ -164,6 +164,7 @@ TRAINER=(
     trainer.save_freq=${SAVE_FREQ}
     trainer.test_freq=${TEST_FREQ}
     trainer.val_before_train=False
+    trainer.resume_mode=disable
 )
 
 # Critical: enable Megatron engine
