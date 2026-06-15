@@ -52,10 +52,9 @@ ADAM_BETA1=${ADAM_BETA1:-0.9}
 ADAM_BETA2=${ADAM_BETA2:-0.98}
 
 # --- Megatron parallelism ---
-# TP=2 matches slime's per-engine TP (4 engines × TP2)
-# With offloading, TP=2 should fit in A100 40GB colocate
-# Total train GPUs = TP * PP * DP = 2 * 1 * 4 = 8 (hybrid engine)
-ACTOR_TP=${ACTOR_TP:-2}
+# TP=4 matches slime colocate. Compare with TP=2 to isolate TP's effect on performance.
+# Total train GPUs = TP * PP * DP = 4 * 1 * 2 = 8 (hybrid engine)
+ACTOR_TP=${ACTOR_TP:-4}
 ACTOR_PP=${ACTOR_PP:-1}
 
 # Megatron offloading: essential for HybridEngine — frees GPU memory for vLLM wake_up
@@ -63,7 +62,8 @@ ACTOR_PP=${ACTOR_PP:-1}
 OFFLOAD=${OFFLOAD:-True}
 
 # --- rollout (vLLM) ---
-# TP=2 matches slime's per-engine TP (4 engines × TP2)
+# TP=2 for 4 inference engines (matches slime: 4 engines × TP2)
+# HybridEngine sharding manager handles TP4(training)→TP2(inference) reshard
 ROLLOUT_TP=${ROLLOUT_TP:-2}
 # Colocate: inference shares GPU with training, lower mem to avoid OOM (matching slime 0.35)
 ROLLOUT_GPU_MEM_UTIL=${ROLLOUT_GPU_MEM_UTIL:-0.35}
@@ -80,7 +80,7 @@ RECOMPUTE_NUM_LAYERS=${RECOMPUTE_NUM_LAYERS:-1}
 
 # --- experiment tracking ---
 PROJECT_NAME=${PROJECT_NAME:-verl_perf_test}
-EXPERIMENT_NAME=${EXPERIMENT_NAME:-qwen3_4b_grpo_n16_resp8192_megatron}
+EXPERIMENT_NAME=${EXPERIMENT_NAME:-qwen3_4b_grpo_n16_resp8192_megatron_tp4}
 TOTAL_TRAINING_STEPS=${TOTAL_TRAINING_STEPS:-8}   # slime: --num-rollout 8
 SAVE_FREQ=${SAVE_FREQ:-9999}
 TEST_FREQ=${TEST_FREQ:-9999}
@@ -123,7 +123,7 @@ ACTOR=(
     actor_rollout_ref.actor.clip_ratio_low=${CLIP_RATIO_LOW}
     actor_rollout_ref.actor.clip_ratio_high=${CLIP_RATIO_HIGH}
     actor_rollout_ref.actor.loss_agg_mode=token-mean
-    # Megatron parallelism (TP=2, 4 engines × TP2 matches slime)
+    # Megatron parallelism (TP=4 matches slime) — rollout engines: 4×TP2
     actor_rollout_ref.actor.megatron.tensor_model_parallel_size=${ACTOR_TP}
     actor_rollout_ref.actor.megatron.pipeline_model_parallel_size=${ACTOR_PP}
     # Offloading: essential for HybridEngine to free GPU memory for vLLM wake_up
