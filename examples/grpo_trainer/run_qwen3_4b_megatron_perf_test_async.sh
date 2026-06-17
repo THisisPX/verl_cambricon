@@ -9,7 +9,7 @@
 # the same training backend (Megatron), making it the fairest comparison.
 #
 # Usage:
-#   bash examples/grpo_trainer/run_qwen3_4b_fsdp_perf_test_async.sh
+#   bash examples/grpo_trainer/run_qwen3_4b_megatron_perf_test_async.sh
 #
 # Override env vars:
 #   TRAIN_FILE, TEST_FILE, MODEL_PATH, NNODES, NGPUS_PER_NODE, etc.

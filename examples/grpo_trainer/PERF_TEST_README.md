@@ -42,14 +42,14 @@ bash examples/grpo_trainer/run_qwen3_4b_megatron_perf_test.sh
 - **对比标的**: slime 同步模式（训练后端同为 Megatron TP=2）
 - **特点**: **训练后端与 slime 一致（同为 Megatron）**，对比更公平。开启 sequence parallel + full recompute 匹配 slime 配置
 
-### 3. 异步-FSDP2 版（Fully Async Policy）
+### 3. 异步-Megatron 版（Fully Async Policy，4+4 分离）
 
 ```bash
-bash examples/grpo_trainer/run_qwen3_4b_fsdp_perf_test_async.sh
+bash examples/grpo_trainer/run_qwen3_4b_megatron_perf_test_async.sh
 ```
 
 - **入口**: `verl.experimental.fully_async_policy.fully_async_main`
-- **架构**: FSDP2，4 GPU 训练 + 4 GPU 推理（分离，流水线并行）
+- **架构**: Megatron TP2×DP2，4 GPU 训练 + 4 GPU 推理（分离，流水线并行）
 - **推理后端**: vLLM V1 引擎（异步模式）
 - **对比标的**: slime 异步模式（4 卡训练 + 4 卡推理，重叠执行）
 
@@ -86,11 +86,11 @@ TEST_FILE=/workspace/datasets/aime-2024/test.parquet \
 MODEL_PATH=/workspace/models/Qwen3-4B \
 bash examples/grpo_trainer/run_qwen3_4b_megatron_perf_test.sh
 
-# 3. FSDP2 异步（4+4 分离对比 async）
+# 3. Megatron 异步（4+4 分离对比 async）
 TRAIN_FILE=/workspace/datasets/dapo-math-17k/train.parquet \
 TEST_FILE=/workspace/datasets/aime-2024/test.parquet \
 MODEL_PATH=/workspace/models/Qwen3-4B \
-bash examples/grpo_trainer/run_qwen3_4b_fsdp_perf_test_async.sh
+bash examples/grpo_trainer/run_qwen3_4b_megatron_perf_test_async.sh
 ```
 
 ## 查看日志
