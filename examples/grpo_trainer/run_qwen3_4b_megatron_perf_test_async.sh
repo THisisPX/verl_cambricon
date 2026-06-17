@@ -17,6 +17,7 @@
 set -xeuo pipefail
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 export VLLM_USE_V1=1
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 # ======================== slime-matching defaults ========================
 MODEL_PATH=${MODEL_PATH:-/workspace/volume/distributed-training-softdata/models/Qwen3-4B}
@@ -68,8 +69,8 @@ infer_ppo_max_token_len=${PPO_MAX_TOKEN_LEN_PER_GPU}
 # --- experiment tracking ---
 PROJECT_NAME=${PROJECT_NAME:-verl_perf_test}
 EXPERIMENT_NAME=${EXPERIMENT_NAME:-qwen3_4b_grpo_n16_resp8192_megatron_async}
-# 8 steps × 8 prompts_per_batch = 64 total prompts (matches slime: 8 × --rollout-batch-size 8)
-TOTAL_ROLLOUT_STEPS=${TOTAL_ROLLOUT_STEPS:-64}
+# 8 steps × 4 samples/step = 32 total samples (ppo_mini_batch=4, require_batches=1)
+TOTAL_ROLLOUT_STEPS=${TOTAL_ROLLOUT_STEPS:-32}
 TEST_FREQ=${TEST_FREQ:-9999}
 SAVE_FREQ=${SAVE_FREQ:--1}
 
@@ -111,8 +112,9 @@ python3 -m verl.experimental.fully_async_policy.fully_async_main \
     actor_rollout_ref.hybrid_engine=False \
     actor_rollout_ref.actor.use_kl_loss="${USE_KL_LOSS}" \
     actor_rollout_ref.actor.entropy_coeff="${ENTROPY_COEFF}" \
+    actor_rollout_ref.actor.use_rollout_log_probs=True \
     actor_rollout_ref.actor.use_dynamic_bsz="${use_dynamic_bsz}" \
-    actor_rollout_ref.actor.ppo_mini_batch_size=8 \
+    actor_rollout_ref.actor.ppo_mini_batch_size=4 \
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1 \
     actor_rollout_ref.actor.ppo_max_token_len_per_gpu="${actor_ppo_max_token_len}" \
     actor_rollout_ref.actor.clip_ratio_low="${CLIP_RATIO_LOW}" \
