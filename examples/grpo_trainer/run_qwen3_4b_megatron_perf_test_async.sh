@@ -68,7 +68,8 @@ infer_ppo_max_token_len=${PPO_MAX_TOKEN_LEN_PER_GPU}
 # --- experiment tracking ---
 PROJECT_NAME=${PROJECT_NAME:-verl_perf_test}
 EXPERIMENT_NAME=${EXPERIMENT_NAME:-qwen3_4b_grpo_n16_resp8192_megatron_async}
-TOTAL_ROLLOUT_STEPS=${TOTAL_ROLLOUT_STEPS:-8}   # match slime: --num-rollout 8
+# 8 steps × 8 prompts_per_batch = 64 total prompts (matches slime: 8 × --rollout-batch-size 8)
+TOTAL_ROLLOUT_STEPS=${TOTAL_ROLLOUT_STEPS:-64}
 TEST_FREQ=${TEST_FREQ:-9999}
 SAVE_FREQ=${SAVE_FREQ:--1}
 
@@ -111,7 +112,7 @@ python3 -m verl.experimental.fully_async_policy.fully_async_main \
     actor_rollout_ref.actor.entropy_coeff="${ENTROPY_COEFF}" \
     actor_rollout_ref.actor.use_rollout_log_probs=True \
     actor_rollout_ref.actor.use_dynamic_bsz="${use_dynamic_bsz}" \
-    actor_rollout_ref.actor.ppo_mini_batch_size=32 \
+    actor_rollout_ref.actor.ppo_mini_batch_size=8 \
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=2 \
     actor_rollout_ref.actor.ppo_max_token_len_per_gpu="${actor_ppo_max_token_len}" \
     actor_rollout_ref.actor.clip_ratio_low="${CLIP_RATIO_LOW}" \
