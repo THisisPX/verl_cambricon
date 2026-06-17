@@ -17,7 +17,6 @@
 set -xeuo pipefail
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 export VLLM_USE_V1=1
-export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 # ======================== slime-matching defaults ========================
 MODEL_PATH=${MODEL_PATH:-/workspace/volume/distributed-training-softdata/models/Qwen3-4B}
