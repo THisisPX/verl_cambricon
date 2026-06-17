@@ -49,16 +49,18 @@ WEIGHT_DECAY=${WEIGHT_DECAY:-0.1}
 ADAM_BETA1=${ADAM_BETA1:-0.9}
 ADAM_BETA2=${ADAM_BETA2:-0.98}
 
-# --- Megatron parallelism (training: 4 GPUs, TP=2, PP=1, DP=2) ---
-TRAIN_TP=${TRAIN_TP:-2}
+# --- Megatron parallelism (training: 4 GPUs, TP=1, PP=1, DP=4) ---
+# TP=1: Qwen3-4B (~8GB bf16) fits in single GPU, no TP all-reduce overhead
+# DP=4: full gradient parallelism across 4 GPUs
+TRAIN_TP=${TRAIN_TP:-1}
 TRAIN_PP=${TRAIN_PP:-1}
 
 # --- rollout parallelism (inference: 4 GPUs, TP=2, DP=2) ---
 ROLLOUT_TP=${ROLLOUT_TP:-2}
 ROLLOUT_GPU_MEM_UTIL=${ROLLOUT_GPU_MEM_UTIL:-0.6}
 
-# --- Megatron offloading (essential on 40GB GPUs) ---
-OFFLOAD=True  # param/grad/optimizer offloading
+# --- Megatron offloading (not needed with TP=1 on 40GB, but kept for safety) ---
+OFFLOAD=False
 
 # --- dynamic batch ---
 use_dynamic_bsz=True
@@ -68,8 +70,8 @@ infer_ppo_max_token_len=${PPO_MAX_TOKEN_LEN_PER_GPU}
 # --- experiment tracking ---
 PROJECT_NAME=${PROJECT_NAME:-verl_perf_test}
 EXPERIMENT_NAME=${EXPERIMENT_NAME:-qwen3_4b_grpo_n16_resp8192_megatron_async}
-# 8 steps × 4 samples/step = 32 total samples (ppo_mini_batch=4, require_batches=1)
-TOTAL_ROLLOUT_STEPS=${TOTAL_ROLLOUT_STEPS:-32}
+# 8 steps × 8 samples/step = 64 total samples (ppo_mini_batch=8, require_batches=1)
+TOTAL_ROLLOUT_STEPS=${TOTAL_ROLLOUT_STEPS:-64}
 TEST_FREQ=${TEST_FREQ:-9999}
 SAVE_FREQ=${SAVE_FREQ:--1}
 
@@ -113,8 +115,8 @@ python3 -m verl.experimental.fully_async_policy.fully_async_main \
     actor_rollout_ref.actor.entropy_coeff="${ENTROPY_COEFF}" \
     actor_rollout_ref.actor.use_rollout_log_probs=True \
     actor_rollout_ref.actor.use_dynamic_bsz="${use_dynamic_bsz}" \
-    actor_rollout_ref.actor.ppo_mini_batch_size=4 \
-    actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1 \
+    actor_rollout_ref.actor.ppo_mini_batch_size=8 \
+    actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=2 \
     actor_rollout_ref.actor.ppo_max_token_len_per_gpu="${actor_ppo_max_token_len}" \
     actor_rollout_ref.actor.clip_ratio_low="${CLIP_RATIO_LOW}" \
     actor_rollout_ref.actor.clip_ratio_high="${CLIP_RATIO_HIGH}" \
