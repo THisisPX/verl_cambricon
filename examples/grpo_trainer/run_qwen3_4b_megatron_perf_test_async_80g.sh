@@ -1,14 +1,12 @@
 #!/usr/bin/env bash
-# Performance Test (Fully Async): Qwen3-4B | GRPO | Megatron + vLLM | 4×80GB A100
+# Performance Test (Fully Async): Qwen3-4B | GRPO | Megatron + vLLM | 4×80GB A100 SXM
 #
-# Fully async deployment with SEPARATE GPU groups:
-#   - 4 GPUs for Megatron training (TP=2, DP=2)
-#   - 4 GPUs for vLLM rollout (TP=2, DP=2)
+# Fully async deployment with SEPARATE GPU groups (2 train + 2 inference):
+#   - 2 GPUs for Megatron training (TP=2, DP=1)
+#   - 2 GPUs for vLLM rollout (TP=2, 1 engine)
 #
-# Optimized for 4×80GB A100 SXM — ample VRAM allows aggressive batch sizes,
-# higher vLLM memory utilization, and no gradient checkpointing overhead.
-#
-# Matches slime's GPU layout (4 train + 4 inference) for apples-to-apples comparison.
+# Each GPU has 80GB — no memory pressure, no gradient checkpointing needed.
+# Ray must be started with --num-gpus=4.
 #
 # Usage:
 #   bash examples/grpo_trainer/run_qwen3_4b_megatron_perf_test_async_80g.sh
@@ -25,11 +23,11 @@ MODEL_PATH=${MODEL_PATH:-/workspace/volume/distributed-training-softdata/models/
 TRAIN_FILE=${TRAIN_FILE:-/workspace/volume/pengxiong/datasets/dapo-math-17k/dapo-math-17k-verl.parquet}
 TEST_FILE=${TEST_FILE:-/workspace/volume/pengxiong/datasets/aime-2024/aime-2024-verl.parquet}
 
-# GPU allocation: 4 train + 4 inference on 1 node
+# GPU allocation: 2 train + 2 inference on 1 node (4 GPU total)
 NNODES=${NNODES:-1}
-NGPUS_PER_NODE=${NGPUS_PER_NODE:-8}
-N_GPUS_TRAIN=${N_GPUS_TRAIN:-4}
-N_GPUS_ROLLOUT=${N_GPUS_ROLLOUT:-4}
+NGPUS_PER_NODE=${NGPUS_PER_NODE:-4}
+N_GPUS_TRAIN=${N_GPUS_TRAIN:-2}
+N_GPUS_ROLLOUT=${N_GPUS_ROLLOUT:-2}
 
 # --- batch / rollout (matching slime) ---
 TRAIN_BATCH_SIZE=0           # 0 = async mode (streaming)
@@ -52,12 +50,12 @@ WEIGHT_DECAY=${WEIGHT_DECAY:-0.1}
 ADAM_BETA1=${ADAM_BETA1:-0.9}
 ADAM_BETA2=${ADAM_BETA2:-0.98}
 
-# --- Megatron parallelism (training: 4 GPUs, TP=2, PP=1, DP=2) ---
-# 80GB: TP=2 provides ~51GB free per GPU after model+grad+optimizer (~29GB)
+# --- Megatron parallelism (training: 2 GPUs, TP=2, PP=1, DP=1) ---
+# TP=2 splits Qwen3-4B across 2 GPUs (~4GB each), DP=1 (single data stream)
 TRAIN_TP=${TRAIN_TP:-2}
 TRAIN_PP=${TRAIN_PP:-1}
 
-# --- rollout parallelism (inference: 4 GPUs, TP=2, DP=2) ---
+# --- rollout parallelism (inference: 2 GPUs, TP=2, 1 engine) ---
 ROLLOUT_TP=${ROLLOUT_TP:-2}
 # 80GB: plenty of headroom, use 0.7 for larger KV cache
 ROLLOUT_GPU_MEM_UTIL=${ROLLOUT_GPU_MEM_UTIL:-0.7}
@@ -140,7 +138,7 @@ python3 -m verl.experimental.fully_async_policy.fully_async_main \
     actor_rollout_ref.rollout.tensor_model_parallel_size="${ROLLOUT_TP}" \
     actor_rollout_ref.rollout.gpu_memory_utilization="${ROLLOUT_GPU_MEM_UTIL}" \
     actor_rollout_ref.rollout.max_model_len=9216 \
-    actor_rollout_ref.rollout.max_num_seqs=64 \
+    actor_rollout_ref.rollout.max_num_seqs=32 \
     actor_rollout_ref.rollout.enforce_eager=False \
     actor_rollout_ref.rollout.enable_chunked_prefill=True \
     actor_rollout_ref.rollout.free_cache_engine=True \
