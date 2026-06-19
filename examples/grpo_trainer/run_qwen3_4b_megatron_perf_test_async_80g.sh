@@ -71,14 +71,14 @@ infer_ppo_max_token_len=${PPO_MAX_TOKEN_LEN_PER_GPU}
 # --- experiment tracking ---
 PROJECT_NAME=${PROJECT_NAME:-verl_perf_test}
 EXPERIMENT_NAME=${EXPERIMENT_NAME:-qwen3_4b_grpo_n16_resp8192_megatron_async_80g}
-# 8 steps × 8 samples/step = 64 total samples (ppo_mini_batch=8)
-TOTAL_ROLLOUT_STEPS=${TOTAL_ROLLOUT_STEPS:-64}
+# 16 steps × 8 samples/step = 128 total samples (ppo_mini_batch=8)
+TOTAL_ROLLOUT_STEPS=${TOTAL_ROLLOUT_STEPS:-128}
 TEST_FREQ=${TEST_FREQ:-9999}
 SAVE_FREQ=${SAVE_FREQ:--1}
 
 # --- async training ---
 STALENESS_THRESHOLD=${STALENESS_THRESHOLD:-0.5}
-TRIGGER_PARAM_SYNC_STEP=${TRIGGER_PARAM_SYNC_STEP:-4}
+TRIGGER_PARAM_SYNC_STEP=${TRIGGER_PARAM_SYNC_STEP:-1}
 REQUIRE_BATCHES=${REQUIRE_BATCHES:-1}
 PARTIAL_ROLLOUT=${PARTIAL_ROLLOUT:-True}
 
