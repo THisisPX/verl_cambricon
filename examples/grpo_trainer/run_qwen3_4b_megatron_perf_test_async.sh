@@ -69,8 +69,8 @@ actor_ppo_max_token_len=${PPO_MAX_TOKEN_LEN_PER_GPU}
 infer_ppo_max_token_len=${PPO_MAX_TOKEN_LEN_PER_GPU}
 
 # ==================== 实验追踪 ====================
-PROJECT_NAME=${PROJECT_NAME:-verl_perf_test}
-EXPERIMENT_NAME=${EXPERIMENT_NAME:-qwen3_4b_grpo_n16_resp8192_megatron_async}
+PROJECT_NAME=${PROJECT_NAME:-verl_async_test}
+EXPERIMENT_NAME=${EXPERIMENT_NAME:-qwen3_4b_grpo_n16_resp8192_megatron_async_4tp2_4tp2}
 TEST_FREQ=${TEST_FREQ:-9999}
 SAVE_FREQ=${SAVE_FREQ:--1}
 
@@ -152,6 +152,7 @@ python3 -m verl.experimental.fully_async_policy.fully_async_main \
     actor_rollout_ref.rollout.val_kwargs.top_k=-1 \
     actor_rollout_ref.rollout.val_kwargs.do_sample=True \
     actor_rollout_ref.rollout.val_kwargs.n=1 \
+    actor_rollout_ref.rollout.checkpoint_engine.backend="" \
     reward.reward_manager.name=dapo \
     +reward.reward_kwargs.max_resp_len="${MAX_RESPONSE_LENGTH}" \
     trainer.logger='["console","tensorboard"]' \
