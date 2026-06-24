@@ -1,12 +1,8 @@
 #!/usr/bin/env bash
-# Performance Test (Megatron): Qwen3-4B | GRPO | Megatron + SGLang (colocate)
+# Performance Test (Megatron+SGLang): Qwen3-4B | GRPO | Megatron + SGLang
 #
 # SGLang variant — identical to run_qwen3_4b_megatron_perf_test.sh except rollout engine.
 # Purpose: isolate performance difference between vLLM and SGLang in verl HybridEngine.
-#
-#   Verl vLLM:  Megatron TP4×DP2 hybrid engine + vLLM 4engines×TP2
-#   Verl SGLang: Megatron TP4×DP2 hybrid engine + SGLang 4engines×TP2
-#   Slime:       Megatron TP4×DP2 colocate        + SGLang 4engines×TP2
 #
 # Usage:
 #   bash examples/grpo_trainer/run_qwen3_4b_megatron_sglang_perf_test.sh
@@ -16,6 +12,8 @@
 
 set -xeuo pipefail
 export CUDA_DEVICE_MAX_CONNECTIONS=1
+
+# Suppress multiprocessing shutdown noise and Python 3.12 resource_tracker warnings
 export PYTHONWARNINGS=ignore
 
 # ======================== slime-matching defaults ========================
@@ -27,14 +25,16 @@ NGPUS_PER_NODE=${NGPUS_PER_NODE:-8}
 
 # --- batch / rollout (matching slime) ---
 TRAIN_BATCH_SIZE=${TRAIN_BATCH_SIZE:-8}        # slime: --rollout-batch-size 8
-PPO_MINI_BATCH_SIZE=${PPO_MINI_BATCH_SIZE:-8}  # verl multiplies by rollout.n=16 internally
+PPO_MINI_BATCH_SIZE=${PPO_MINI_BATCH_SIZE:-8}  # slime: --global-batch-size 32, but verl multiplies by rollout.n=16
 MAX_PROMPT_LENGTH=${MAX_PROMPT_LENGTH:-1024}
 MAX_RESPONSE_LENGTH=${MAX_RESPONSE_LENGTH:-8192}
+# Must accommodate max_prompt(1024) + max_response(8192) = 9216 tokens per sequence
 PPO_MAX_TOKEN_LEN_PER_GPU=${PPO_MAX_TOKEN_LEN_PER_GPU:-12288}
 
 # --- algorithm (matching slime: no KL loss, no entropy bonus) ---
 ACTOR_LR=${ACTOR_LR:-1e-6}
 ENTROPY_COEFF=${ENTROPY_COEFF:-0}
+# Dual-clip PPO (matching slime: --eps-clip 0.2 --eps-clip-high 0.28)
 CLIP_RATIO_LOW=${CLIP_RATIO_LOW:-0.2}
 CLIP_RATIO_HIGH=${CLIP_RATIO_HIGH:-0.28}
 WEIGHT_DECAY=${WEIGHT_DECAY:-0.1}
@@ -42,18 +42,27 @@ ADAM_BETA1=${ADAM_BETA1:-0.9}
 ADAM_BETA2=${ADAM_BETA2:-0.98}
 
 # --- Megatron parallelism ---
+# TP=4 matches slime colocate. Compare with TP=2 to isolate TP's effect on performance.
+# Total train GPUs = TP * PP * DP = 4 * 1 * 2 = 8 (hybrid engine)
 ACTOR_TP=${ACTOR_TP:-4}
 ACTOR_PP=${ACTOR_PP:-1}
+
+# Megatron offloading: essential for HybridEngine — frees GPU memory for rollout wake_up
+# (same as slime's forced --offload in colocate mode)
 OFFLOAD=${OFFLOAD:-True}
 
-# --- rollout (SGLang) ---
+# --- rollout (SGLang) --- only difference from vLLM variant ---
 # TP=2 for 4 inference engines (matches slime: 4 engines × TP2)
+# HybridEngine sharding manager handles TP4(training)→TP2(inference) reshard
 ROLLOUT_TP=${ROLLOUT_TP:-2}
+# Colocate: inference shares GPU with training, lower mem to avoid OOM (matching slime 0.35)
 ROLLOUT_GPU_MEM_UTIL=${ROLLOUT_GPU_MEM_UTIL:-0.35}
 ROLLOUT_N=${ROLLOUT_N:-16}
 
 # --- Megatron-specific: sequence parallel + full recompute (matching slime) ---
 SEQUENCE_PARALLEL=True
+
+# Full recompute (matching slime: recompute-granularity=full, recompute-method=uniform)
 RECOMPUTE_GRANULARITY=${RECOMPUTE_GRANULARITY:-full}
 RECOMPUTE_METHOD=${RECOMPUTE_METHOD:-uniform}
 RECOMPUTE_NUM_LAYERS=${RECOMPUTE_NUM_LAYERS:-1}
@@ -93,25 +102,32 @@ ACTOR=(
     actor_rollout_ref.actor.optim.betas=[${ADAM_BETA1},${ADAM_BETA2}]
     actor_rollout_ref.actor.optim.lr_warmup_steps=0
     actor_rollout_ref.actor.ppo_mini_batch_size=${PPO_MINI_BATCH_SIZE}
+    # Dynamic batch: let Megatron handle micro-batch sizing
     actor_rollout_ref.actor.use_dynamic_bsz=True
     actor_rollout_ref.actor.ppo_max_token_len_per_gpu=${PPO_MAX_TOKEN_LEN_PER_GPU}
+    # No KL loss — matching slime (--kl-loss-coef 0.00, no ref model needed)
     actor_rollout_ref.actor.use_kl_loss=False
     actor_rollout_ref.actor.entropy_coeff=${ENTROPY_COEFF}
+    # Dual-clip PPO (matching slime: --eps-clip 0.2 --eps-clip-high 0.28)
     actor_rollout_ref.actor.clip_ratio_low=${CLIP_RATIO_LOW}
     actor_rollout_ref.actor.clip_ratio_high=${CLIP_RATIO_HIGH}
     actor_rollout_ref.actor.loss_agg_mode=token-mean
+    # Megatron parallelism (TP=4 matches slime) — rollout engines: 4×TP2
     actor_rollout_ref.actor.megatron.tensor_model_parallel_size=${ACTOR_TP}
     actor_rollout_ref.actor.megatron.pipeline_model_parallel_size=${ACTOR_PP}
+    # Offloading: essential for HybridEngine to free GPU memory for rollout wake_up
     actor_rollout_ref.actor.megatron.param_offload=${OFFLOAD}
     actor_rollout_ref.actor.megatron.grad_offload=${OFFLOAD}
     actor_rollout_ref.actor.megatron.optimizer_offload=${OFFLOAD}
+    # Sequence parallelism (matches slime's --sequence-parallel)
     ++actor_rollout_ref.actor.megatron.sequence_parallel=${SEQUENCE_PARALLEL}
+    # Full recompute (matches slime's --recompute-granularity full --recompute-method uniform)
     ++actor_rollout_ref.actor.megatron.override_transformer_config.recompute_granularity=${RECOMPUTE_GRANULARITY}
     ++actor_rollout_ref.actor.megatron.override_transformer_config.recompute_method=${RECOMPUTE_METHOD}
     ++actor_rollout_ref.actor.megatron.override_transformer_config.recompute_num_layers=${RECOMPUTE_NUM_LAYERS}
 )
 
-# SGLang rollout — key difference from vLLM variant
+# SGLang rollout — ONLY difference from vLLM variant
 ROLLOUT=(
     actor_rollout_ref.rollout.name=sglang
     actor_rollout_ref.rollout.tensor_model_parallel_size=${ROLLOUT_TP}
@@ -133,6 +149,7 @@ TRAINER=(
     trainer.experiment_name=${EXPERIMENT_NAME}
     trainer.n_gpus_per_node=${NGPUS_PER_NODE}
     trainer.nnodes=${NNODES}
+    # Performance test: skip checkpointing and validation
     trainer.total_training_steps=${TOTAL_TRAINING_STEPS}
     trainer.save_freq=${SAVE_FREQ}
     trainer.test_freq=${TEST_FREQ}
@@ -140,6 +157,7 @@ TRAINER=(
     trainer.resume_mode=disable
 )
 
+# Critical: enable Megatron engine
 EXTRA=(
     model_engine=megatron
 )
