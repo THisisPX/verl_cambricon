@@ -1,98 +1,93 @@
 #!/usr/bin/env bash
-# Performance Test (Fully Async): Qwen3-4B | GRPO | Megatron + vLLM
+# Performance Test (Fully Async): Qwen3-4B | GRPO | Megatron + vLLM | 8×A100 40GB
 #
-# Fully async deployment with SEPARATE GPU groups:
-#   - 4 GPUs for Megatron training (TP=2, DP=2)
-#   - 4 GPUs for vLLM rollout (TP=2, DP=2)
-#
-# This matches slime's GPU layout (4 train + 4 inference) and uses
-# the same training backend (Megatron), making it the fairest comparison.
+# GPU allocation: 4 train (TP2, DP2) + 4 inference (2 engines × TP2)
+# Matches slime: scripts/run-qwen3-4B-async-8gpu.sh
 #
 # Usage:
 #   bash examples/grpo_trainer/run_qwen3_4b_megatron_perf_test_async.sh
 #
 # Override env vars:
-#   TRAIN_FILE, TEST_FILE, MODEL_PATH, NNODES, NGPUS_PER_NODE, etc.
+#   MODEL_PATH, TRAIN_FILE, TEST_FILE, etc.
 
 set -xeuo pipefail
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 export VLLM_USE_V1=1
 
-# ======================== slime-matching defaults ========================
+# ==================== 路径 ====================
 MODEL_PATH=${MODEL_PATH:-/workspace/volume/distributed-training-softdata/models/Qwen3-4B}
 TRAIN_FILE=${TRAIN_FILE:-/workspace/volume/pengxiong/datasets/dapo-math-17k/dapo-math-17k-verl.parquet}
 TEST_FILE=${TEST_FILE:-/workspace/volume/pengxiong/datasets/aime-2024/aime-2024-verl.parquet}
 
-# GPU allocation: 4 train + 4 inference on 1 node
+# ==================== GPU 分配 ====================
 NNODES=${NNODES:-1}
 NGPUS_PER_NODE=${NGPUS_PER_NODE:-8}
 N_GPUS_TRAIN=${N_GPUS_TRAIN:-4}
 N_GPUS_ROLLOUT=${N_GPUS_ROLLOUT:-4}
 
-# --- batch / rollout (matching slime) ---
-TRAIN_BATCH_SIZE=0           # 0 = async mode (streaming)
-GEN_BATCH_SIZE=1             # only 1 supported for async
+# ==================== 数据 & Rollout（匹配 slime）====================
+TRAIN_BATCH_SIZE=0           # 0 = async streaming mode
+GEN_BATCH_SIZE=1
 N_RESP_PER_PROMPT=${N_RESP_PER_PROMPT:-16}
 MAX_PROMPT_LENGTH=${MAX_PROMPT_LENGTH:-1024}
 MAX_RESPONSE_LENGTH=${MAX_RESPONSE_LENGTH:-8192}
-# Must accommodate max_prompt(1024) + max_response(8192) = 9216, with headroom
-PPO_MAX_TOKEN_LEN_PER_GPU=${PPO_MAX_TOKEN_LEN_PER_GPU:-10240}
+PPO_MAX_TOKEN_LEN_PER_GPU=${PPO_MAX_TOKEN_LEN_PER_GPU:-12288}
 
-# --- algorithm (matching slime: no KL loss, no KL penalty) ---
+# 16 steps × 8 samples/step = 128 total
+TOTAL_ROLLOUT_STEPS=${TOTAL_ROLLOUT_STEPS:-128}
+
+# ==================== 算法（匹配 slime）====================
 ACTOR_LR=${ACTOR_LR:-1e-6}
 ENTROPY_COEFF=0
 CLIP_RATIO_LOW=0.2
 CLIP_RATIO_HIGH=0.28
 USE_KL_IN_REWARD=False
 USE_KL_LOSS=False
+
+# ==================== 优化器（匹配 slime）====================
 WEIGHT_DECAY=${WEIGHT_DECAY:-0.1}
 ADAM_BETA1=${ADAM_BETA1:-0.9}
 ADAM_BETA2=${ADAM_BETA2:-0.98}
 
-# --- Megatron parallelism (training: 4 GPUs, TP=2, PP=1, DP=2) ---
-# TP=2 halves grad buffer (8GB vs 16GB) → critical for fitting 40GB
-# DP=2: optimizer states sharded across 2 GPUs (12GB each)
+# ==================== Megatron 并行策略 ====================
+# 4 GPU training: TP=2 → 4GB model per GPU, DP=2, 40GB safe
 TRAIN_TP=${TRAIN_TP:-2}
 TRAIN_PP=${TRAIN_PP:-1}
-
-# --- rollout parallelism (inference: 4 GPUs, TP=2, DP=2) ---
-ROLLOUT_TP=${ROLLOUT_TP:-2}
-ROLLOUT_GPU_MEM_UTIL=${ROLLOUT_GPU_MEM_UTIL:-0.6}
-
-# --- Megatron offloading ---
 OFFLOAD=False
 
-# --- dynamic batch ---
-use_dynamic_bsz=True
+# ==================== vLLM 推理 ====================
+# 4 GPU inference: 2 engines × TP2
+ROLLOUT_TP=${ROLLOUT_TP:-2}
+ROLLOUT_GPU_MEM_UTIL=${ROLLOUT_GPU_MEM_UTIL:-0.5}
+
+# ==================== Batch（40GB 保守配置）====================
+# gradient_checkpointing + micro_batch=1 → ~29GB peak, 40GB safe
+PPO_MINI_BATCH_SIZE=8
+PPO_MICRO_BATCH_SIZE_PER_GPU=1
+
 actor_ppo_max_token_len=${PPO_MAX_TOKEN_LEN_PER_GPU}
 infer_ppo_max_token_len=${PPO_MAX_TOKEN_LEN_PER_GPU}
 
-# --- experiment tracking ---
+# ==================== 实验追踪 ====================
 PROJECT_NAME=${PROJECT_NAME:-verl_perf_test}
 EXPERIMENT_NAME=${EXPERIMENT_NAME:-qwen3_4b_grpo_n16_resp8192_megatron_async}
-# 8 steps × 4 samples/step = 32 total samples (ppo_mini_batch=4, require_batches=1)
-TOTAL_ROLLOUT_STEPS=${TOTAL_ROLLOUT_STEPS:-32}
 TEST_FREQ=${TEST_FREQ:-9999}
 SAVE_FREQ=${SAVE_FREQ:--1}
 
-# --- async training ---
+# ==================== 异步配置 ====================
 STALENESS_THRESHOLD=${STALENESS_THRESHOLD:-0.5}
-TRIGGER_PARAM_SYNC_STEP=${TRIGGER_PARAM_SYNC_STEP:-4}
+TRIGGER_PARAM_SYNC_STEP=${TRIGGER_PARAM_SYNC_STEP:-1}    # 每步 log
 REQUIRE_BATCHES=${REQUIRE_BATCHES:-1}
 PARTIAL_ROLLOUT=${PARTIAL_ROLLOUT:-True}
 
-# ======================== log dir ========================
+# ==================== 日志 ====================
 LOG_DIR=${LOG_DIR:-"logs/${PROJECT_NAME}/${EXPERIMENT_NAME}"}
 mkdir -p "${LOG_DIR}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 LOG_FILE="${LOG_DIR}/train_${TIMESTAMP}.log"
 echo "Logging to: ${LOG_FILE}"
 
-# ======================== launch ========================
-# Note: Hydra @hydra.main decorator in fully_async_main.py resolves
-# config_path relative to the file, so --config-path is not needed
-# when running from any CWD.
-
+# ==================== 启动 ====================
 python3 -m verl.experimental.fully_async_policy.fully_async_main \
     --config-name='fully_async_ppo_megatron_trainer.yaml' \
     data.train_files="${TRAIN_FILE}" \
@@ -114,9 +109,9 @@ python3 -m verl.experimental.fully_async_policy.fully_async_main \
     actor_rollout_ref.actor.use_kl_loss="${USE_KL_LOSS}" \
     actor_rollout_ref.actor.entropy_coeff="${ENTROPY_COEFF}" \
     actor_rollout_ref.actor.use_rollout_log_probs=True \
-    actor_rollout_ref.actor.use_dynamic_bsz="${use_dynamic_bsz}" \
-    actor_rollout_ref.actor.ppo_mini_batch_size=4 \
-    actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1 \
+    actor_rollout_ref.actor.use_dynamic_bsz=True \
+    actor_rollout_ref.actor.ppo_mini_batch_size="${PPO_MINI_BATCH_SIZE}" \
+    actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu="${PPO_MICRO_BATCH_SIZE_PER_GPU}" \
     actor_rollout_ref.actor.ppo_max_token_len_per_gpu="${actor_ppo_max_token_len}" \
     actor_rollout_ref.actor.clip_ratio_low="${CLIP_RATIO_LOW}" \
     actor_rollout_ref.actor.clip_ratio_high="${CLIP_RATIO_HIGH}" \
