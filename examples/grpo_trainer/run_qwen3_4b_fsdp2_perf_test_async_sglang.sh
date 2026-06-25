@@ -59,7 +59,7 @@ python3 -m verl.experimental.fully_async_policy.fully_async_main \
     actor_rollout_ref.rollout.log_prob_max_token_len_per_gpu=12288 \
     actor_rollout_ref.hybrid_engine=False \
     actor_rollout_ref.actor.strategy=fsdp2 \
-    +actor_rollout_ref.actor.fsdp_config.fsdp_size=2 \
+    ++actor_rollout_ref.actor.fsdp_config.fsdp_size=2 \
     actor_rollout_ref.actor.use_kl_loss=False \
     actor_rollout_ref.actor.entropy_coeff=0 \
     actor_rollout_ref.actor.use_rollout_log_probs=True \
