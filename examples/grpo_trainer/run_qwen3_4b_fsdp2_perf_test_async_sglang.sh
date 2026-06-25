@@ -104,7 +104,7 @@ python3 -m verl.experimental.fully_async_policy.fully_async_main \
     actor_rollout_ref.model.enable_gradient_checkpointing=True \
     actor_rollout_ref.hybrid_engine=False \
     actor_rollout_ref.actor.strategy=fsdp2 \
-    +actor_rollout_ref.actor.fsdp_config.fsdp_size="${FSDP_SIZE}" \
+    ++actor_rollout_ref.actor.fsdp_config.fsdp_size="${FSDP_SIZE}" \
     actor_rollout_ref.actor.use_kl_loss="${USE_KL_LOSS}" \
     actor_rollout_ref.actor.entropy_coeff="${ENTROPY_COEFF}" \
     actor_rollout_ref.actor.use_rollout_log_probs=True \
