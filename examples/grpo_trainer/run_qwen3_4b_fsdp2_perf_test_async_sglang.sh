@@ -79,7 +79,7 @@ python3 -m verl.experimental.fully_async_policy.fully_async_main \
     --config-name='fully_async_ppo_trainer' \
     data.train_files="${TRAIN_FILE}" \
     data.val_files="${TEST_FILE}" \
-    train_batch_size="${TRAIN_BATCH_SIZE}" \
+    data.train_batch_size="${TRAIN_BATCH_SIZE}" \
     data.gen_batch_size="${GEN_BATCH_SIZE}" \
     data.return_raw_chat=True \
     data.max_prompt_length="${MAX_PROMPT_LENGTH}" \
