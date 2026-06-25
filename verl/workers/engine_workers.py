@@ -619,20 +619,14 @@ class ActorRolloutRefWorker(Worker, DistProfilerExtension):
         if "actor" in self.role:
             checkpoint_engine_config = omega_conf_to_dataclass(self.config.rollout.checkpoint_engine)
             backend = checkpoint_engine_config.backend
-            # In fully_async mode (hybrid_engine=False), weight sync uses
-            # message-queue-based send_weights, not the checkpoint_engine.
-            # Skip creation when backend is empty to avoid registry errors.
-            if backend:
-                bucket_size = checkpoint_engine_config.update_weights_bucket_megabytes << 20
-                engine_kwargs = checkpoint_engine_config.engine_kwargs.get(backend, {})
-                # If custom_backend_module is set, import it so plugins can register
-                # in CheckpointEngineRegistry before the backend is instantiated.
-                import_external_libs(checkpoint_engine_config.custom_backend_module or None)
-                self.checkpoint_engine = CheckpointEngineRegistry.new(
-                    backend, is_master=(torch.distributed.get_rank() == 0), bucket_size=bucket_size, **engine_kwargs
-                )
-            else:
-                self.checkpoint_engine = None
+            bucket_size = checkpoint_engine_config.update_weights_bucket_megabytes << 20
+            engine_kwargs = checkpoint_engine_config.engine_kwargs.get(backend, {})
+            # If custom_backend_module is set, import it so plugins can register
+            # in CheckpointEngineRegistry before the backend is instantiated.
+            import_external_libs(checkpoint_engine_config.custom_backend_module or None)
+            self.checkpoint_engine = CheckpointEngineRegistry.new(
+                backend, is_master=(torch.distributed.get_rank() == 0), bucket_size=bucket_size, **engine_kwargs
+            )
 
         # Free cached GPU memory so colocated vLLM processes can see it via cudaMemGetInfo
         aggressive_empty_cache(force_sync=True)
