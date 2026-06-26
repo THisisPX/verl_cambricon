@@ -152,7 +152,7 @@ python3 -m verl.experimental.fully_async_policy.fully_async_main \
     actor_rollout_ref.rollout.val_kwargs.top_k=-1 \
     actor_rollout_ref.rollout.val_kwargs.do_sample=True \
     actor_rollout_ref.rollout.val_kwargs.n=1 \
-    actor_rollout_ref.rollout.checkpoint_engine.backend=naive \
+    actor_rollout_ref.rollout.checkpoint_engine.backend=nccl \
     reward.reward_manager.name=dapo \
     +reward.reward_kwargs.max_resp_len="${MAX_RESPONSE_LENGTH}" \
     trainer.logger='["console","tensorboard"]' \
