@@ -8,6 +8,7 @@
 #   bash examples/grpo_trainer/run_qwen3_4b_fsdp2_perf_test_async_sglang.sh
 
 set -xeuo pipefail
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 # ==================== 路径 ====================
 MODEL_PATH=${MODEL_PATH:-/workspace/volume/distributed-training-softdata/models/Qwen3-4B}
@@ -66,7 +67,7 @@ python3 -m verl.experimental.fully_async_policy.fully_async_main \
     actor_rollout_ref.actor.entropy_coeff=0 \
     actor_rollout_ref.actor.use_rollout_log_probs=True \
     actor_rollout_ref.actor.use_dynamic_bsz=True \
-    actor_rollout_ref.actor.ppo_max_token_len_per_gpu=10240 \
+    actor_rollout_ref.actor.ppo_max_token_len_per_gpu=9216 \
     actor_rollout_ref.actor.clip_ratio_low=0.2 \
     actor_rollout_ref.actor.clip_ratio_high=0.28 \
     actor_rollout_ref.actor.optim.lr=1e-6 \
@@ -93,5 +94,5 @@ python3 -m verl.experimental.fully_async_policy.fully_async_main \
     async_training.trigger_parameter_sync_step=1 \
     async_training.require_batches=1 \
     async_training.partial_rollout=False \
-    actor_rollout_ref.actor.ppo_mini_batch_size=2 \
+    actor_rollout_ref.actor.ppo_mini_batch_size=1 \
     "$@" 2>&1 | tee "${LOG_FILE}"
