@@ -8,7 +8,6 @@
 #   bash examples/grpo_trainer/run_qwen3_4b_fsdp2_perf_test_async_sglang.sh
 
 set -xeuo pipefail
-export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 # ==================== 路径 ====================
 MODEL_PATH=${MODEL_PATH:-/workspace/volume/distributed-training-softdata/models/Qwen3-4B}

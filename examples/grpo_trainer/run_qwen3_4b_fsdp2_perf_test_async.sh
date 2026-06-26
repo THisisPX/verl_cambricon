@@ -9,7 +9,6 @@
 
 set -xeuo pipefail
 export VLLM_USE_V1=1
-export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 # ==================== 路径 ====================
 MODEL_PATH=${MODEL_PATH:-/workspace/volume/distributed-training-softdata/models/Qwen3-4B}
