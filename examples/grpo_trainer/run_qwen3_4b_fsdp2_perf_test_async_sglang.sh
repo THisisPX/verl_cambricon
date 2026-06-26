@@ -93,5 +93,5 @@ python3 -m verl.experimental.fully_async_policy.fully_async_main \
     async_training.trigger_parameter_sync_step=1 \
     async_training.require_batches=1 \
     async_training.partial_rollout=False \
-    actor_rollout_ref.actor.ppo_mini_batch_size=8 \
+    actor_rollout_ref.actor.ppo_mini_batch_size=2 \
     "$@" 2>&1 | tee "${LOG_FILE}"
