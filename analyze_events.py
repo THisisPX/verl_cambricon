@@ -15,6 +15,8 @@ verl_a_base = 'tensorboard_log/verl_async_test'
 verl_async_runs = {
     'Async_Megatron_vLLM_4096': glob.glob(f'{verl_a_base}/qwen3_4b_grpo_n16_resp4096_megatron_async_4096_4tp2_4tp2/events.out.*'),
     'Async_FSDP2_SGLang':       glob.glob(f'{verl_a_base}/qwen3_4b_grpo_n16_resp8192_fsdp2_async_sglang/events.out.*'),
+    'Async_B300_SGLang_8192':   glob.glob(f'{verl_a_base}/qwen3_4b_grpo_n16_resp8192_megatron_async_sglang_b300/events.out.*'),
+'Async_B300_vLLM_8192':     glob.glob(f'{verl_a_base}/qwen3_4b_grpo_n16_resp8192_megatron_async_b300/events.out.*'),
 }
 
 verl_metrics = [
