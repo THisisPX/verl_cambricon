@@ -10,6 +10,9 @@
 set -xeuo pipefail
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 export VLLM_USE_V1=1
+# B300: pip-installed Triton bundles a stale ptxas that doesn't know sm_103a.
+# Point to the system CUDA 13.0 ptxas instead (supports sm_103).
+export TRITON_PTXAS_PATH=/usr/local/cuda/bin/ptxas
 
 # ==================== 路径 ====================
 MODEL_PATH=${MODEL_PATH:-/workspace/volume/distributed-training-softdata/models/Qwen3-4B}
@@ -133,7 +136,7 @@ python3 -m verl.experimental.fully_async_policy.fully_async_main \
     actor_rollout_ref.rollout.gpu_memory_utilization="${ROLLOUT_GPU_MEM_UTIL}" \
     actor_rollout_ref.rollout.max_model_len=9216 \
     actor_rollout_ref.rollout.max_num_seqs=64 \
-    actor_rollout_ref.rollout.enforce_eager=True \
+    actor_rollout_ref.rollout.enforce_eager=False \
     actor_rollout_ref.rollout.enable_chunked_prefill=True \
     actor_rollout_ref.rollout.free_cache_engine=True \
     actor_rollout_ref.rollout.calculate_log_probs=True \
