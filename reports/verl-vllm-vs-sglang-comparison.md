@@ -74,7 +74,7 @@
 | response_len/mean | 6448 | 6509 | — |
 | pg_loss | 0.01 | 0.01 | — |
 
-*\*B300 SGLang update_actor 较慢是因为 DP=1（2 GPU训练），vLLM 快可能是训练端引擎对 GPU 利用的差异所致。同步实验中同 TP4 时 update_actor 完全一致。*
+*\*两脚本的 B300 训练并行参数完全一致（TP=2, DP=1, 2 GPU）。update_actor 差异（40s vs 64s）应为 SGLang HTTP Server 进程占用更多 CPU/内存资源，干扰了同节点训练进程所致。同步实验推理和训练分离在不同 GPU 上，update_actor 一致（55.7s vs 55.4s）。*
 
 ## 分析
 
