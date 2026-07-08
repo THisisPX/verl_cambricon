@@ -131,10 +131,10 @@ ACTOR=(
     actor_rollout_ref.actor.megatron.override_transformer_config.recompute_num_layers=1
     # Attention 配置 (匹配 slime: FA2, 无 dropout, FP32 allreduce/softmax)
     actor_rollout_ref.actor.megatron.override_transformer_config.attention_backend=flash
-    actor_rollout_ref.actor.megatron.override_transformer_config.attention_dropout=0.0
-    actor_rollout_ref.actor.megatron.override_transformer_config.hidden_dropout=0.0
-    actor_rollout_ref.actor.megatron.override_transformer_config.accumulate_allreduce_grads_in_fp32=True
-    actor_rollout_ref.actor.megatron.override_transformer_config.attention_softmax_in_fp32=True
+    +actor_rollout_ref.actor.megatron.override_transformer_config.attention_dropout=0.0
+    +actor_rollout_ref.actor.megatron.override_transformer_config.hidden_dropout=0.0
+    +actor_rollout_ref.actor.megatron.override_transformer_config.accumulate_allreduce_grads_in_fp32=True
+    +actor_rollout_ref.actor.megatron.override_transformer_config.attention_softmax_in_fp32=True
     # VLM: 冻结 vision encoder
     actor_rollout_ref.actor.freeze_vision_tower=True
 )
