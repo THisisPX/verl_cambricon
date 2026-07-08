@@ -172,9 +172,9 @@ python3 -m verl.experimental.fully_async_policy.fully_async_main \
     actor_rollout_ref.actor.megatron.param_offload=False \
     actor_rollout_ref.actor.megatron.grad_offload=False \
     actor_rollout_ref.actor.megatron.optimizer_offload=False \
-    +actor_rollout_ref.actor.megatron.override_transformer_config.recompute_granularity=full \
-    +actor_rollout_ref.actor.megatron.override_transformer_config.recompute_method=uniform \
-    +actor_rollout_ref.actor.megatron.override_transformer_config.recompute_num_layers=1 \
+    ++actor_rollout_ref.actor.megatron.override_transformer_config.recompute_granularity=full \
+    ++actor_rollout_ref.actor.megatron.override_transformer_config.recompute_method=uniform \
+    ++actor_rollout_ref.actor.megatron.override_transformer_config.recompute_num_layers=1 \
     ++actor_rollout_ref.actor.megatron.override_transformer_config.attention_backend=flash \
     +actor_rollout_ref.actor.megatron.override_transformer_config.attention_dropout=0.0 \
     +actor_rollout_ref.actor.megatron.override_transformer_config.hidden_dropout=0.0 \
