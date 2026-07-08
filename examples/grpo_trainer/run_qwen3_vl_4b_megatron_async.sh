@@ -217,7 +217,6 @@ python3 -m verl.experimental.fully_async_policy.fully_async_main \
     rollout.nnodes=1 \
     rollout.n_gpus_per_node=2 \
     rollout.total_rollout_steps="${total_rollout_steps}" \
-    rollout.test_freq="${test_freq}" \
     async_training.staleness_threshold="${staleness_threshold}" \
     async_training.trigger_parameter_sync_step="${trigger_parameter_sync_step}" \
     async_training.require_batches="${require_batches}" \
