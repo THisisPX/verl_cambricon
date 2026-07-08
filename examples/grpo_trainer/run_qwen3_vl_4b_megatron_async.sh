@@ -176,10 +176,6 @@ python3 -m verl.experimental.fully_async_policy.fully_async_main \
     ++actor_rollout_ref.actor.megatron.override_transformer_config.recompute_method=uniform \
     ++actor_rollout_ref.actor.megatron.override_transformer_config.recompute_num_layers=1 \
     ++actor_rollout_ref.actor.megatron.override_transformer_config.attention_backend=flash \
-    +actor_rollout_ref.actor.megatron.override_transformer_config.attention_dropout=0.0 \
-    +actor_rollout_ref.actor.megatron.override_transformer_config.hidden_dropout=0.0 \
-    +actor_rollout_ref.actor.megatron.override_transformer_config.accumulate_allreduce_grads_in_fp32=True \
-    +actor_rollout_ref.actor.megatron.override_transformer_config.attention_softmax_in_fp32=True \
     actor_rollout_ref.rollout.name=sglang \
     actor_rollout_ref.rollout.mode=async \
     actor_rollout_ref.rollout.tensor_model_parallel_size="${rollout_tp}" \
