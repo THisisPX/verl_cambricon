@@ -91,7 +91,7 @@ fi
 
 ########################### 日志 ###########################
 
-LOG_DIR="${LOG_DIR:-logs/${PROJECT_NAME}/${EXPERIMENT_NAME}}"
+LOG_DIR="${LOG_DIR:-logs/${project_name}/${experiment_name}}"
 mkdir -p "${LOG_DIR}"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 LOG_FILE="${LOG_DIR}/train_${TIMESTAMP}.log"
