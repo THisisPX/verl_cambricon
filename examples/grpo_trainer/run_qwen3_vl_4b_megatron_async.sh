@@ -23,10 +23,10 @@ set -xeuo pipefail
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 
 # ==================== 路径配置 (请根据实际环境修改) ====================
-MODEL_PATH="${MODEL_PATH:-Qwen/Qwen3-VL-4B-Instruct}"
+MODEL_PATH="${MODEL_PATH:-/workspace/volume/distributed-training-softdata/models/Qwen3-VL-4B-Instruct}"
 SAVE_DIR="${SAVE_DIR:-/workspace/volume/pengxiong/models/Qwen3-VL-4B_verl_geo3k_async}"
-DATA_DIR="${DATA_DIR:-$HOME/data}"
-RAW_DATA_DIR="${RAW_DATA_DIR:-/workspace/volume/pengxiong/datasets}"
+DATA_DIR="/workspace/volume/pengxiong/datasets"  # 上级目录，脚本会拼 geo3k_imgurl
+RAW_DATA_DIR="/workspace/volume/pengxiong/datasets"  # 不会用到，随便设
 # =====================================================================
 
 # ---- user-adjustable ----
