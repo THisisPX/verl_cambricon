@@ -149,8 +149,8 @@ ROLLOUT=(
     actor_rollout_ref.rollout.log_prob_use_dynamic_bsz=True
     actor_rollout_ref.rollout.log_prob_max_token_len_per_gpu=${ppo_max_token_len_per_gpu}
     # SGLang 额外参数 (匹配 slime)
-    actor_rollout_ref.rollout.engine_kwargs.sglang.mm_attention_backend=sdpa
-    actor_rollout_ref.rollout.engine_kwargs.sglang.attention_backend=flashinfer
+    +actor_rollout_ref.rollout.engine_kwargs.sglang.mm_attention_backend=sdpa
+    +actor_rollout_ref.rollout.engine_kwargs.sglang.attention_backend=flashinfer
     # 验证参数 (匹配 slime: eval n=1, top_p=1)
     actor_rollout_ref.rollout.val_kwargs.n=1
     actor_rollout_ref.rollout.val_kwargs.top_p=1
