@@ -8,7 +8,7 @@
 # 与 hybrid engine 版本的关键区别:
 #   1. 训练和推理使用独立 GPU 池, 并行执行 (2+2 而非 4 卡共享)
 #   2. Rollouter 持续生成样本 → MessageQueue → Trainer 消费, 流水线重叠
-#   3. NCCL CheckpointEngine 做权重同步 (trainer → rollouter)
+#   3. CheckpointEngine 做权重同步 (trainer → rollouter), naive 后端 (colocated)
 #   4. trigger_parameter_sync_step=4: 每 4 步本地训练后同步一次权重
 #   5. staleness_threshold=0: 同步流式模式 (不使用旧样本, 匹配 slime 的 on-policy)
 #
@@ -152,6 +152,7 @@ python3 -m verl.experimental.fully_async_policy.fully_async_main \
     actor_rollout_ref.actor.use_rollout_log_probs=True \
     actor_rollout_ref.actor.use_dynamic_bsz=True \
     actor_rollout_ref.actor.ppo_mini_batch_size="${ppo_mini_batch_size}" \
+    actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=4 \
     actor_rollout_ref.actor.ppo_max_token_len_per_gpu="${ppo_max_token_len_per_gpu}" \
     actor_rollout_ref.actor.clip_ratio_low="${clip_ratio_low}" \
     actor_rollout_ref.actor.clip_ratio_high="${clip_ratio_high}" \
@@ -186,6 +187,7 @@ python3 -m verl.experimental.fully_async_policy.fully_async_main \
     actor_rollout_ref.rollout.top_p=1.0 \
     actor_rollout_ref.rollout.top_k=-1 \
     actor_rollout_ref.rollout.enforce_eager=True \
+    actor_rollout_ref.rollout.enable_chunked_prefill=True \
     actor_rollout_ref.rollout.free_cache_engine=True \
     actor_rollout_ref.rollout.calculate_log_probs=True \
     actor_rollout_ref.rollout.log_prob_max_token_len_per_gpu="${ppo_max_token_len_per_gpu}" \
@@ -198,7 +200,7 @@ python3 -m verl.experimental.fully_async_policy.fully_async_main \
     actor_rollout_ref.rollout.val_kwargs.top_k=-1 \
     actor_rollout_ref.rollout.val_kwargs.do_sample=True \
     actor_rollout_ref.rollout.val_kwargs.n=1 \
-    actor_rollout_ref.rollout.checkpoint_engine.backend=nccl \
+    actor_rollout_ref.rollout.checkpoint_engine.backend=naive \
     custom_reward_function.path="${REPO_ROOT}/examples/grpo_trainer/geo3k_reward.py" \
     custom_reward_function.name=compute_score \
     reward.reward_manager.name=naive \
