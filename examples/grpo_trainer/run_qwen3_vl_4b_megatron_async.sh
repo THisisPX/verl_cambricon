@@ -29,12 +29,16 @@ DATA_DIR="${DATA_DIR:-/workspace/volume/pengxiong/datasets/gsm8k-processed}"  # 
 # =====================================================================
 
 # ---- user-adjustable ----
-# 匹配 slime 的超参
-total_rollout_steps=${TOTAL_ROLLOUT_STEPS:-32000}  # 等价 slime: 500 rollouts × 64 global_batch
+# 匹配 slime: scripts/run-qwen3-VL-4B-geo3k-4gpu-v3.sh
+# slime: 500 rollouts × 16 prompts/rollout = 8000 总 prompts, 64000 总 samples
+total_rollout_steps=${TOTAL_ROLLOUT_STEPS:-8000}
 n_resp_per_prompt=${N_RESP_PER_PROMPT:-8}
 max_prompt_length=${MAX_PROMPT_LENGTH:-2048}
 max_response_length=${MAX_RESPONSE_LENGTH:-3072}
-ppo_max_token_len_per_gpu=${PPO_MAX_TOKEN_LEN_PER_GPU:-2048}
+# verl 要求 ppo_max_token_len_per_gpu >= max_prompt+max_response
+# (语义不同于 slime 的 TP-aware max-tokens-per-gpu, verl 按原始 seqlen 校验)
+# 6144 = 2048(prompt) + 3072(response) + 1024(headroom for image tokens & special tokens)
+ppo_max_token_len_per_gpu=${PPO_MAX_TOKEN_LEN_PER_GPU:-6144}
 ppo_mini_batch_size=${PPO_MINI_BATCH_SIZE:-64}
 
 actor_lr=${ACTOR_LR:-1e-6}
@@ -58,7 +62,7 @@ rollout_temperature=${ROLLOUT_TEMPERATURE:-0.8}
 staleness_threshold=${STALENESS_THRESHOLD:-0}      # 0=on-policy 流式, >0 允许旧样本加速
 trigger_parameter_sync_step=${TRIGGER_PARAM_SYNC_STEP:-4}  # 本地训练步数后同步权重
 require_batches=${REQUIRE_BATCHES:-1}              # 1=纯流式, 攒够 1 个 mini_batch 即训练
-partial_rollout=${PARTIAL_ROLLOUT:-False}           # staleness=0 时 partial_rollout 无实际效果
+partial_rollout=${PARTIAL_ROLLOUT:-True}            # 权重同步期间恢复被中断的 rollout (避免丢弃已生成的样本)
 
 # 日志 & 保存
 test_freq=${TEST_FREQ:-20}
@@ -102,6 +106,9 @@ export NCCL_NVLS_ENABLE="${NCCL_NVLS_ENABLE:-${HAS_NVLINK}}"
 
 # WandB 离线 (匹配 slime: 仅 TensorBoard)
 export WANDB_MODE=offline
+
+# SGLang 多模态注意力后端 (匹配 slime: --sglang-mm-attention-backend sdpa)
+export SGLANG_MM_ATTENTION_BACKEND="${SGLANG_MM_ATTENTION_BACKEND:-sdpa}"
 
 ########################### launch ###########################
 
@@ -183,7 +190,7 @@ python3 -m verl.experimental.fully_async_policy.fully_async_main \
     actor_rollout_ref.rollout.calculate_log_probs=True \
     actor_rollout_ref.rollout.log_prob_max_token_len_per_gpu="${ppo_max_token_len_per_gpu}" \
     actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=4 \
-    actor_rollout_ref.rollout.max_model_len=$((max_prompt_length + max_response_length + 512)) \
+    actor_rollout_ref.rollout.max_model_len=$((max_prompt_length + max_response_length + 1024)) \
     +actor_rollout_ref.rollout.engine_kwargs.sglang.mm_attention_backend=sdpa \
     +actor_rollout_ref.rollout.engine_kwargs.sglang.attention_backend=flashinfer \
     actor_rollout_ref.rollout.val_kwargs.temperature=0.7 \
