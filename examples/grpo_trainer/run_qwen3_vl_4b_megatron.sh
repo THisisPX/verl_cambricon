@@ -19,8 +19,7 @@ export CUDA_DEVICE_MAX_CONNECTIONS=1
 # ==================== 路径配置 (请根据实际环境修改) ====================
 MODEL_PATH="${MODEL_PATH:-Qwen/Qwen3-VL-4B-Instruct}"
 SAVE_DIR="${SAVE_DIR:-/workspace/volume/pengxiong/models/Qwen3-VL-4B_verl_geo3k_slime_match}"
-DATA_DIR="${DATA_DIR:-$HOME/data}"
-RAW_DATA_DIR="${RAW_DATA_DIR:-/workspace/volume/pengxiong/datasets}"
+DATA_DIR="${DATA_DIR:-/workspace/volume/pengxiong/datasets/gsm8k-processed}"  # verl 格式数据目录 (含 train.parquet/test.parquet)
 # =====================================================================
 
 # ---- user-adjustable ----
@@ -58,22 +57,14 @@ experiment_name=${EXPERIMENT_NAME:-qwen3_vl_4b_sglang_megatron_slime_match}
 ########################### 数据预处理 ###########################
 
 # slime 数据集 (chenhegu/geo3k_imgurl) 需要转换为 verl 格式
-VERL_DATA_DIR="${DATA_DIR}/geo3k_imgurl"
+VERL_DATA_DIR="${DATA_DIR}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." &>/dev/null && pwd)"
 
 if [ ! -f "${VERL_DATA_DIR}/train.parquet" ]; then
     echo "Preprocessing chenhegu/geo3k_imgurl to verl format..."
-    # 如果 raw data 目录已有 slime 下载的数据，直接使用
-    RAW_PATH="${RAW_DATA_DIR}/chenhegu/geo3k_imgurl"
-    if [ -d "${RAW_PATH}" ]; then
-        python3 "${REPO_ROOT}/examples/data_preprocess/geo3k_imgurl.py" \
-            --local_dataset_path "${RAW_PATH}" \
-            --local_save_dir "${VERL_DATA_DIR}"
-    else
-        python3 "${REPO_ROOT}/examples/data_preprocess/geo3k_imgurl.py" \
-            --local_save_dir "${VERL_DATA_DIR}"
-    fi
+    python3 "${REPO_ROOT}/examples/data_preprocess/geo3k_imgurl.py" \
+        --local_save_dir "${VERL_DATA_DIR}"
     echo "Preprocessing done: ${VERL_DATA_DIR}"
 fi
 
