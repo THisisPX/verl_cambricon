@@ -162,6 +162,7 @@ python3 -m verl.experimental.fully_async_policy.fully_async_main \
     actor_rollout_ref.actor.optim.lr="${actor_lr}" \
     actor_rollout_ref.actor.optim.lr_warmup_steps=0 \
     actor_rollout_ref.actor.optim.lr_decay_style='constant' \
+    actor_rollout_ref.actor.optim.lr_decay_steps="${total_rollout_steps}" \
     actor_rollout_ref.actor.optim.weight_decay="${weight_decay}" \
     actor_rollout_ref.actor.optim.betas="[${adam_beta1},${adam_beta2}]" \
     actor_rollout_ref.actor.megatron.tensor_model_parallel_size="${train_tp}" \
