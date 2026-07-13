@@ -25,7 +25,37 @@ import os
 from io import BytesIO
 
 import datasets
-from PIL import Image
+
+
+def _normalize_image(img):
+    """Normalize a raw image entry to a parquet-serializable dict.
+
+    The chenhegu/geo3k_imgurl dataset stores images as ``{"bytes": "<data URI>"}``
+    dicts.  Data URIs (``data:image/...;base64,...``) are large strings and
+    cannot be opened directly by PIL.  We decode the base64 payload here so
+    downstream (verl RHLFDataset._build_messages / process_vision_info) can
+    work with raw bytes immediately — without requiring PIL at preprocessing
+    time (which also avoids parquet serialization errors).
+    """
+    if isinstance(img, dict):
+        if "image" in img:
+            return img
+        if "bytes" in img:
+            if isinstance(img["bytes"], str):
+                # data URI → decode base64 payload
+                _, b64 = img["bytes"].split(",", 1)
+                return {"bytes": base64.b64decode(b64)}
+            # already raw bytes
+            return img
+    if isinstance(img, bytes):
+        return {"bytes": img}
+    if isinstance(img, str):
+        if img.startswith("data:"):
+            _, b64 = img.split(",", 1)
+            return {"bytes": base64.b64decode(b64)}
+        # regular file path
+        return {"bytes": open(img, "rb").read()}
+    raise TypeError(f"Unsupported image type: {type(img)}")
 
 
 if __name__ == "__main__":
@@ -50,49 +80,18 @@ if __name__ == "__main__":
         r"The final answer MUST BE put in \boxed{}."
     )
 
-    def _load_image(img):
-        """Convert a raw image entry to PIL.Image.
-
-        The local chenhegu/geo3k_imgurl dataset stores images as base64 data URIs
-        (``data:image/...;base64,...``). PIL.Image.open does not handle data URIs —
-        they must be decoded first. verl RHLFDataset._build_messages requires
-        PIL.Image or dict.
-        """
-        if isinstance(img, Image.Image):
-            return img
-        if isinstance(img, dict):
-            if "image" in img:
-                return img
-            if "bytes" in img:
-                if isinstance(img["bytes"], str):
-                    # data URI as string → decode base64 payload
-                    header, b64 = img["bytes"].split(",", 1)
-                    img["bytes"] = base64.b64decode(b64)
-                img["image"] = Image.open(BytesIO(img["bytes"]))
-                return img
-        if isinstance(img, bytes):
-            return Image.open(BytesIO(img))
-        if isinstance(img, str):
-            if img.startswith("data:"):
-                # data URI → decode base64 payload
-                header, b64 = img.split(",", 1)
-                return Image.open(BytesIO(base64.b64decode(b64))).convert("RGB")
-            return Image.open(img).convert("RGB")
-        raise TypeError(f"Unsupported image type: {type(img)}")
-
     def make_map_fn(split):
         def process_fn(example, idx):
             problem = example.pop("problem")
             answer = example.pop("answer")
             raw_images = example.pop("images")
-            pil_images = [_load_image(img) for img in raw_images]
+            # Normalize to {"bytes": raw_bytes} dicts — parquet-safe, no PIL
+            norm_images = [_normalize_image(img) for img in raw_images]
 
-            # Build content list directly instead of using <image> text placeholder.
-            # This avoids issues with <image> appearing in problem text (geo3k questions
-            # can contain markup), and is the correct Qwen3-VL multimodal message format.
-            # rl_dataset._build_messages skips the re.split("<image>") path when content
-            # is already a list, preserving the image/text structure as-is.
-            content = [{"type": "image", "image": img} for img in pil_images]
+            # Build Qwen3-VL content list directly so verl's _build_messages
+            # skips the re.split("<image>") path (which cannot handle this
+            # dataset's image format).
+            content = [{"type": "image", **img} for img in norm_images]
             content.append({"type": "text", "text": problem + " " + instruction_following})
 
             data = {
@@ -103,7 +102,7 @@ if __name__ == "__main__":
                         "content": content,
                     }
                 ],
-                "images": pil_images,  # still include for processor-based token counting
+                "images": norm_images,
                 "ability": "math",
                 "reward_model": {"style": "rule", "ground_truth": answer},
                 "extra_info": {
