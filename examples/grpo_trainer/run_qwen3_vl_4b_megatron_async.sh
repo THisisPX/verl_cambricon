@@ -17,7 +17,7 @@ export CUDA_DEVICE_MAX_CONNECTIONS=1
 
 # ==================== 路径配置 (请根据实际环境修改) ====================
 MODEL_PATH="${MODEL_PATH:-/workspace/volume/distributed-training-softdata/models/Qwen3-VL-4B-Instruct}"
-SAVE_DIR="${SAVE_DIR:-/workspace/volume/pengxiong/models/Qwen3-VL-4B_verl_geo3k_async}"
+SAVE_DIR="${SAVE_DIR:-/workspace/volume/pengxiong/models/Qwen3-VL-4B_verl_geo3k_async_v2}"
 RAW_DATA_DIR="${RAW_DATA_DIR:-/workspace/volume/pengxiong/datasets/geo3k_imgurl}"   # 原始 HF 数据集路径
 DATA_DIR="${DATA_DIR:-/workspace/volume/pengxiong/datasets/geo3k_imgurl-verl}"        # verl 格式输出目录
 # =====================================================================
@@ -69,8 +69,8 @@ partial_rollout=${PARTIAL_ROLLOUT:-True}
 test_freq=${TEST_FREQ:-9999}
 save_freq=${SAVE_FREQ:-9999}
 
-project_name=${PROJECT_NAME:-verl_async_geo3k}
-experiment_name=${EXPERIMENT_NAME:-qwen3_vl_4b_sglang_megatron_async_slime_match}
+project_name=${PROJECT_NAME:-verl_async_geo3k_v2}
+experiment_name=${EXPERIMENT_NAME:-qwen3_vl_4b_sglang_megatron_async_v2}
 # ---- end user-adjustable ----
 
 ########################### 数据预处理 ###########################
