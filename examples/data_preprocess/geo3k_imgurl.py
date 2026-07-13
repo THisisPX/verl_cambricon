@@ -21,8 +21,10 @@ Usage:
 
 import argparse
 import os
+from io import BytesIO
 
 import datasets
+from PIL import Image
 
 
 if __name__ == "__main__":
@@ -47,6 +49,26 @@ if __name__ == "__main__":
         r"The final answer MUST BE put in \boxed{}."
     )
 
+    def _load_image(img):
+        """Convert a raw image entry to PIL.Image.
+
+        The local chenhegu/geo3k_imgurl dataset stores images as file paths (str).
+        verl RHLFDataset._build_messages requires PIL.Image or dict — str raises TypeError.
+        """
+        if isinstance(img, Image.Image):
+            return img
+        if isinstance(img, dict):
+            if "image" in img:
+                return img
+            if "bytes" in img:
+                img["image"] = Image.open(BytesIO(img["bytes"]))
+                return img
+        if isinstance(img, bytes):
+            return Image.open(BytesIO(img))
+        if isinstance(img, str):
+            return Image.open(img).convert("RGB")
+        raise TypeError(f"Unsupported image type: {type(img)}")
+
     def make_map_fn(split):
         def process_fn(example, idx):
             problem = example.pop("problem")
@@ -57,6 +79,8 @@ if __name__ == "__main__":
             prompt = "<image>" + problem + " " + instruction_following
             answer = example.pop("answer")
             images = example.pop("images")
+            # Convert string paths (or other formats) to PIL.Image list
+            images = [_load_image(img) for img in images]
 
             data = {
                 "data_source": data_source,
