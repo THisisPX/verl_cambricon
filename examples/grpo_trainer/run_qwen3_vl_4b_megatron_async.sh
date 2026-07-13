@@ -9,13 +9,6 @@
 #   1. 训练和推理使用独立 GPU 池, 并行执行 (2+2 而非 4 卡共享)
 #   2. Rollouter 持续生成样本 → MessageQueue → Trainer 消费, 流水线重叠
 #   3. NCCL CheckpointEngine 做权重同步 (trainer → rollouter)
-#   4. trigger_parameter_sync_step=4: 每 4 步本地训练后同步一次权重
-#   5. staleness_threshold=0: 同步流式模式 (不使用旧样本, 匹配 slime 的 on-policy)
-#
-# 速度收益: 文档记载 1.72x-2.67x 加速 (7B 模型)
-#
-# 数据集: chenhegu/geo3k_imgurl (几何推理, LaTeX 答案)
-# Reward: geo3k (mathruler LaTeX 公式比较, 等价 slime 的 --rm-type math)
 # ==============================================================================
 
 set -xeuo pipefail
@@ -30,9 +23,13 @@ DATA_DIR="${DATA_DIR:-/workspace/volume/pengxiong/datasets/geo3k_imgurl-verl}"  
 # =====================================================================
 
 # ---- user-adjustable ----
-# 性能分析模式: total_rollout_steps 设全数据集大小 (2101), 让 rollouter 不断供。
-# 由 trainer.total_training_steps 控制何时停止。
-# gen_batch_size=1, ppo_mini_batch_size=64, n=8 → 8 prompts/step
+# 参数 1:1 对标 slime: scripts/run-qwen3-VL-4B-geo3k-4gpu-v3.sh
+#   slime --global-batch-size 64        → ppo_mini_batch_size=64
+#   slime --n-samples-per-prompt 8      → rollout.n=8
+#   slime --rollout-max-response-len 3072 → max_response_length=3072
+#
+# total_rollout_steps 设全数据集 (2101), 由 trainer.total_training_steps 控制停止。
+# gen_batch_size=1, ppo_mini_batch_size=64, n=8 → 每 8 个 prompt = 1 个 trainer step
 trainer_steps=${TRAINER_STEPS:-12}
 total_rollout_steps=${TOTAL_ROLLOUT_STEPS:-2101}   # 全数据集, 由 trainer 控制停止
 n_resp_per_prompt=${N_RESP_PER_PROMPT:-8}
@@ -42,7 +39,7 @@ max_response_length=${MAX_RESPONSE_LENGTH:-3072}
 # (语义不同于 slime 的 TP-aware max-tokens-per-gpu, verl 按原始 seqlen 校验)
 # 6144 = 2048(prompt) + 3072(response) + 1024(headroom for image tokens & special tokens)
 ppo_max_token_len_per_gpu=${PPO_MAX_TOKEN_LEN_PER_GPU:-6144}
-ppo_mini_batch_size=${PPO_MINI_BATCH_SIZE:-8}       # 8 samples/step (1 prompt × 8), 匹配 B300 async 脚本
+ppo_mini_batch_size=${PPO_MINI_BATCH_SIZE:-64}          # 匹配 slime --global-batch-size 64
 ppo_micro_batch_size_per_gpu=${PPO_MICRO_BATCH_SIZE_PER_GPU:-1}
 
 actor_lr=${ACTOR_LR:-1e-6}
@@ -194,7 +191,7 @@ python3 -m verl.experimental.fully_async_policy.fully_async_main \
     actor_rollout_ref.rollout.free_cache_engine=True \
     actor_rollout_ref.rollout.calculate_log_probs=True \
     actor_rollout_ref.rollout.log_prob_max_token_len_per_gpu="${ppo_max_token_len_per_gpu}" \
-    actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=4 \
+    actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=1 \
     actor_rollout_ref.rollout.max_model_len=$((max_prompt_length + max_response_length + 1024)) \
     +actor_rollout_ref.rollout.engine_kwargs.sglang.mm_attention_backend=sdpa \
     +actor_rollout_ref.rollout.engine_kwargs.sglang.attention_backend=flashinfer \
