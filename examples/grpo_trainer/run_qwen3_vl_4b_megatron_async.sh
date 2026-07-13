@@ -30,10 +30,10 @@ DATA_DIR="${DATA_DIR:-/workspace/volume/pengxiong/datasets/geo3k_imgurl-verl}"  
 # =====================================================================
 
 # ---- user-adjustable ----
-# 性能分析模式: ~16-24 trainer steps
+# 性能分析模式: trainer 跑 12 步后停止。total_rollout_steps 设大值保证数据不断供。
 # gen_batch_size=1, ppo_mini_batch_size=64, n=8 → 8 prompts/step
-# 256 prompts → ~32 steps of data, staleness_threshold=0.5 允许复用
-total_rollout_steps=${TOTAL_ROLLOUT_STEPS:-256}
+trainer_steps=${TRAINER_STEPS:-12}
+total_rollout_steps=${TOTAL_ROLLOUT_STEPS:-9999}   # 巨大值，由 trainer.total_training_steps 控制停止
 n_resp_per_prompt=${N_RESP_PER_PROMPT:-8}
 max_prompt_length=${MAX_PROMPT_LENGTH:-2048}
 max_response_length=${MAX_RESPONSE_LENGTH:-3072}
@@ -60,11 +60,11 @@ rollout_tp=${ROLLOUT_TP:-2}
 rollout_gpu_mem_util=${ROLLOUT_GPU_MEM_UTIL:-0.7}
 rollout_temperature=${ROLLOUT_TEMPERATURE:-0.8}
 
-# 异步控制参数
-staleness_threshold=${STALENESS_THRESHOLD:-0.5}      # 允许一定比例旧样本, 避免 rollouter 退出后无样本可用
-trigger_parameter_sync_step=${TRIGGER_PARAM_SYNC_STEP:-4}  # 本地训练步数后同步权重
-require_batches=${REQUIRE_BATCHES:-1}              # 1=纯流式, 攒够 1 个 mini_batch 即训练
-partial_rollout=${PARTIAL_ROLLOUT:-True}            # 权重同步期间恢复被中断的 rollout (避免丢弃已生成的样本)
+# 异步控制参数 (对标官方 fully_async_policy/shell/*.sh)
+staleness_threshold=${STALENESS_THRESHOLD:-0.5}
+trigger_parameter_sync_step=${TRIGGER_PARAM_SYNC_STEP:-4}
+require_batches=${REQUIRE_BATCHES:-1}
+partial_rollout=${PARTIAL_ROLLOUT:-True}
 
 # 日志 & 保存 (性能分析模式: 跳过 val 和 checkpoint 节省时间)
 test_freq=${TEST_FREQ:-9999}
@@ -210,6 +210,7 @@ python3 -m verl.experimental.fully_async_policy.fully_async_main \
     trainer.experiment_name="${experiment_name}" \
     trainer.nnodes=1 \
     trainer.n_gpus_per_node=2 \
+    trainer.total_training_steps="${trainer_steps}" \
     trainer.val_before_train=False \
     trainer.test_freq="${test_freq}" \
     trainer.save_freq="${save_freq}" \
