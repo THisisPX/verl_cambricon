@@ -25,7 +25,8 @@ export CUDA_DEVICE_MAX_CONNECTIONS=1
 # ==================== 路径配置 (请根据实际环境修改) ====================
 MODEL_PATH="${MODEL_PATH:-/workspace/volume/distributed-training-softdata/models/Qwen3-VL-4B-Instruct}"
 SAVE_DIR="${SAVE_DIR:-/workspace/volume/pengxiong/models/Qwen3-VL-4B_verl_geo3k_async}"
-DATA_DIR="${DATA_DIR:-/workspace/volume/pengxiong/datasets/gsm8k-processed}"  # verl 格式数据目录 (含 train.parquet/test.parquet)
+RAW_DATA_DIR="${RAW_DATA_DIR:-/workspace/volume/pengxiong/datasets/geo3k_imgurl}"   # 原始 HF 数据集路径
+DATA_DIR="${DATA_DIR:-/workspace/volume/pengxiong/datasets/geo3k_imgurl-verl}"        # verl 格式输出目录
 # =====================================================================
 
 # ---- user-adjustable ----
@@ -81,8 +82,9 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 REPO_ROOT="$(cd -- "${SCRIPT_DIR}/../.." &>/dev/null && pwd)"
 
 if [ ! -f "${VERL_DATA_DIR}/train.parquet" ]; then
-    echo "Preprocessing chenhegu/geo3k_imgurl to verl format..."
+    echo "Preprocessing ${RAW_DATA_DIR} to verl format..."
     python3 "${REPO_ROOT}/examples/data_preprocess/geo3k_imgurl.py" \
+        --local_dataset_path "${RAW_DATA_DIR}" \
         --local_save_dir "${VERL_DATA_DIR}"
     echo "Preprocessing done: ${VERL_DATA_DIR}"
 fi
