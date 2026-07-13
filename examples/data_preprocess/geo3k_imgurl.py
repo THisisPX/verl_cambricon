@@ -50,7 +50,11 @@ if __name__ == "__main__":
     def make_map_fn(split):
         def process_fn(example, idx):
             problem = example.pop("problem")
-            prompt = problem + " " + instruction_following
+            # <image> placeholder is required by verl's RLHFDataset._build_messages
+            # to correctly embed images into the message content list.
+            # Without it, images are silently dropped and the model never sees
+            # the geometry diagram (causing 0% reward / 234-token mean responses).
+            prompt = "<image>" + problem + " " + instruction_following
             answer = example.pop("answer")
             images = example.pop("images")
 
