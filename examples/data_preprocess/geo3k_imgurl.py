@@ -20,6 +20,7 @@ Usage:
 """
 
 import argparse
+import base64
 import os
 from io import BytesIO
 
@@ -52,8 +53,10 @@ if __name__ == "__main__":
     def _load_image(img):
         """Convert a raw image entry to PIL.Image.
 
-        The local chenhegu/geo3k_imgurl dataset stores images as file paths (str).
-        verl RHLFDataset._build_messages requires PIL.Image or dict — str raises TypeError.
+        The local chenhegu/geo3k_imgurl dataset stores images as base64 data URIs
+        (``data:image/...;base64,...``). PIL.Image.open does not handle data URIs —
+        they must be decoded first. verl RHLFDataset._build_messages requires
+        PIL.Image or dict.
         """
         if isinstance(img, Image.Image):
             return img
@@ -61,11 +64,19 @@ if __name__ == "__main__":
             if "image" in img:
                 return img
             if "bytes" in img:
+                if isinstance(img["bytes"], str):
+                    # data URI as string → decode base64 payload
+                    header, b64 = img["bytes"].split(",", 1)
+                    img["bytes"] = base64.b64decode(b64)
                 img["image"] = Image.open(BytesIO(img["bytes"]))
                 return img
         if isinstance(img, bytes):
             return Image.open(BytesIO(img))
         if isinstance(img, str):
+            if img.startswith("data:"):
+                # data URI → decode base64 payload
+                header, b64 = img.split(",", 1)
+                return Image.open(BytesIO(base64.b64decode(b64))).convert("RGB")
             return Image.open(img).convert("RGB")
         raise TypeError(f"Unsupported image type: {type(img)}")
 
