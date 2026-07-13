@@ -22,39 +22,42 @@ Usage:
 import argparse
 import base64
 import os
+import re
 from io import BytesIO
 
 import datasets
+from PIL import Image
 
 
-def _normalize_image(img):
-    """Normalize a raw image entry to a parquet-serializable dict.
+def _decode_data_uri(uri: str) -> Image.Image:
+    """Decode a ``data:image/...;base64,...`` URI to a PIL Image."""
+    _, b64 = uri.split(",", 1)
+    return Image.open(BytesIO(base64.b64decode(b64))).convert("RGB")
 
-    The chenhegu/geo3k_imgurl dataset stores images as ``{"bytes": "<data URI>"}``
-    dicts.  Data URIs (``data:image/...;base64,...``) are large strings and
-    cannot be opened directly by PIL.  We decode the base64 payload here so
-    downstream (verl RHLFDataset._build_messages / process_vision_info) can
-    work with raw bytes immediately — without requiring PIL at preprocessing
-    time (which also avoids parquet serialization errors).
+
+def _to_pil(img) -> Image.Image:
+    """Normalize any image entry to a PIL Image.
+
+    ``chenhegu/geo3k_imgurl`` stores images as ``{"bytes": "data:image/...;base64,..."}``.
+    ``load_dataset`` returns these as-is — we must decode them here so the
+    ``images`` column contains PIL.Image objects, which datasets can serialize
+    to parquet natively (arrow binary type).
     """
+    if isinstance(img, Image.Image):
+        return img.convert("RGB")
     if isinstance(img, dict):
-        if "image" in img:
-            return img
+        if "image" in img and isinstance(img["image"], Image.Image):
+            return img["image"].convert("RGB")
         if "bytes" in img:
             if isinstance(img["bytes"], str):
-                # data URI → decode base64 payload
-                _, b64 = img["bytes"].split(",", 1)
-                return {"bytes": base64.b64decode(b64)}
-            # already raw bytes
-            return img
+                return _decode_data_uri(img["bytes"])
+            return Image.open(BytesIO(img["bytes"])).convert("RGB")
     if isinstance(img, bytes):
-        return {"bytes": img}
+        return Image.open(BytesIO(img)).convert("RGB")
     if isinstance(img, str):
         if img.startswith("data:"):
-            _, b64 = img.split(",", 1)
-            return {"bytes": base64.b64decode(b64)}
-        # regular file path
-        return {"bytes": open(img, "rb").read()}
+            return _decode_data_uri(img)
+        return Image.open(img).convert("RGB")
     raise TypeError(f"Unsupported image type: {type(img)}")
 
 
@@ -80,29 +83,31 @@ if __name__ == "__main__":
         r"The final answer MUST BE put in \boxed{}."
     )
 
+    # Some geo3k problem texts may contain a literal "<image>" substring
+    # (e.g. HTML markup).  verl's RLHFDataset._build_messages uses
+    # re.split("(<image>)") to locate images — a literal "<image>" would
+    # be counted as a second image placeholder and crash with an assertion
+    # error.  Strip them from the problem text.
+    _RE_LITERAL_IMAGE = re.compile(r"<image>", re.IGNORECASE)
+
     def make_map_fn(split):
         def process_fn(example, idx):
-            problem = example.pop("problem")
+            problem = _RE_LITERAL_IMAGE.sub("", example.pop("problem"))
             answer = example.pop("answer")
             raw_images = example.pop("images")
-            # Normalize to {"bytes": raw_bytes} dicts — parquet-safe, no PIL
-            norm_images = [_normalize_image(img) for img in raw_images]
+            pil_images = [_to_pil(img) for img in raw_images]
 
-            # Build Qwen3-VL content list directly so verl's _build_messages
-            # skips the re.split("<image>") path (which cannot handle this
-            # dataset's image format).
-            content = [{"type": "image", **img} for img in norm_images]
-            content.append({"type": "text", "text": problem + " " + instruction_following})
+            prompt_text = "<image>" + problem + " " + instruction_following
 
             data = {
                 "data_source": data_source,
                 "prompt": [
                     {
                         "role": "user",
-                        "content": content,
+                        "content": prompt_text,
                     }
                 ],
-                "images": norm_images,
+                "images": pil_images,
                 "ability": "math",
                 "reward_model": {"style": "rule", "ground_truth": answer},
                 "extra_info": {
