@@ -83,25 +83,27 @@ if __name__ == "__main__":
     def make_map_fn(split):
         def process_fn(example, idx):
             problem = example.pop("problem")
-            # <image> placeholder is required by verl's RLHFDataset._build_messages
-            # to correctly embed images into the message content list.
-            # Without it, images are silently dropped and the model never sees
-            # the geometry diagram (causing 0% reward / 234-token mean responses).
-            prompt = "<image>" + problem + " " + instruction_following
             answer = example.pop("answer")
-            images = example.pop("images")
-            # Convert string paths (or other formats) to PIL.Image list
-            images = [_load_image(img) for img in images]
+            raw_images = example.pop("images")
+            pil_images = [_load_image(img) for img in raw_images]
+
+            # Build content list directly instead of using <image> text placeholder.
+            # This avoids issues with <image> appearing in problem text (geo3k questions
+            # can contain markup), and is the correct Qwen3-VL multimodal message format.
+            # rl_dataset._build_messages skips the re.split("<image>") path when content
+            # is already a list, preserving the image/text structure as-is.
+            content = [{"type": "image", "image": img} for img in pil_images]
+            content.append({"type": "text", "text": problem + " " + instruction_following})
 
             data = {
                 "data_source": data_source,
                 "prompt": [
                     {
                         "role": "user",
-                        "content": prompt,
+                        "content": content,
                     }
                 ],
-                "images": images,
+                "images": pil_images,  # still include for processor-based token counting
                 "ability": "math",
                 "reward_model": {"style": "rule", "ground_truth": answer},
                 "extra_info": {
