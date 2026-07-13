@@ -42,7 +42,8 @@ max_response_length=${MAX_RESPONSE_LENGTH:-3072}
 # (语义不同于 slime 的 TP-aware max-tokens-per-gpu, verl 按原始 seqlen 校验)
 # 6144 = 2048(prompt) + 3072(response) + 1024(headroom for image tokens & special tokens)
 ppo_max_token_len_per_gpu=${PPO_MAX_TOKEN_LEN_PER_GPU:-6144}
-ppo_mini_batch_size=${PPO_MINI_BATCH_SIZE:-64}
+ppo_mini_batch_size=${PPO_MINI_BATCH_SIZE:-8}       # 8 samples/step (1 prompt × 8), 匹配 B300 async 脚本
+ppo_micro_batch_size_per_gpu=${PPO_MICRO_BATCH_SIZE_PER_GPU:-1}
 
 actor_lr=${ACTOR_LR:-1e-6}
 weight_decay=${WEIGHT_DECAY:-0.1}
@@ -63,7 +64,7 @@ rollout_temperature=${ROLLOUT_TEMPERATURE:-0.8}
 
 # 异步控制参数 (对标官方 fully_async_policy/shell/*.sh)
 staleness_threshold=${STALENESS_THRESHOLD:-0.5}
-trigger_parameter_sync_step=${TRIGGER_PARAM_SYNC_STEP:-4}
+trigger_parameter_sync_step=${TRIGGER_PARAM_SYNC_STEP:-1}    # 每步同步权重, 保证样本流转
 require_batches=${REQUIRE_BATCHES:-1}
 partial_rollout=${PARTIAL_ROLLOUT:-True}
 
@@ -154,7 +155,7 @@ python3 -m verl.experimental.fully_async_policy.fully_async_main \
     actor_rollout_ref.actor.use_rollout_log_probs=True \
     actor_rollout_ref.actor.use_dynamic_bsz=True \
     actor_rollout_ref.actor.ppo_mini_batch_size="${ppo_mini_batch_size}" \
-    actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=4 \
+    actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu="${ppo_micro_batch_size_per_gpu}" \
     actor_rollout_ref.actor.ppo_max_token_len_per_gpu="${ppo_max_token_len_per_gpu}" \
     actor_rollout_ref.actor.clip_ratio_low="${clip_ratio_low}" \
     actor_rollout_ref.actor.clip_ratio_high="${clip_ratio_high}" \
