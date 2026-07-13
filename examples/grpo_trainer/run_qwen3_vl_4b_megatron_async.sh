@@ -29,9 +29,11 @@ DATA_DIR="${DATA_DIR:-/workspace/volume/pengxiong/datasets/gsm8k-processed}"  # 
 # =====================================================================
 
 # ---- user-adjustable ----
-# 匹配 slime: scripts/run-qwen3-VL-4B-geo3k-4gpu-v3.sh
-# slime: 500 rollouts × 16 prompts/rollout = 8000 总 prompts, 64000 总 samples
-total_rollout_steps=${TOTAL_ROLLOUT_STEPS:-8000}
+# 性能分析模式: 只跑少量步数即可获得稳定的性能数据
+# total_rollout_steps 控制 rollout 端生成的总 prompt 数
+# gen_batch_size=1, ppo_mini_batch_size=64, n=8 → 每 8 prompts = 1 trainer step
+# 64 prompts → ~8 trainer steps, 足够性能分析
+total_rollout_steps=${TOTAL_ROLLOUT_STEPS:-64}
 n_resp_per_prompt=${N_RESP_PER_PROMPT:-8}
 max_prompt_length=${MAX_PROMPT_LENGTH:-2048}
 max_response_length=${MAX_RESPONSE_LENGTH:-3072}
@@ -64,9 +66,9 @@ trigger_parameter_sync_step=${TRIGGER_PARAM_SYNC_STEP:-4}  # 本地训练步数�
 require_batches=${REQUIRE_BATCHES:-1}              # 1=纯流式, 攒够 1 个 mini_batch 即训练
 partial_rollout=${PARTIAL_ROLLOUT:-True}            # 权重同步期间恢复被中断的 rollout (避免丢弃已生成的样本)
 
-# 日志 & 保存
-test_freq=${TEST_FREQ:-20}
-save_freq=${SAVE_FREQ:-100}
+# 日志 & 保存 (性能分析模式: 跳过 val 和 checkpoint 节省时间)
+test_freq=${TEST_FREQ:-9999}
+save_freq=${SAVE_FREQ:-9999}
 
 project_name=${PROJECT_NAME:-verl_async_geo3k}
 experiment_name=${EXPERIMENT_NAME:-qwen3_vl_4b_sglang_megatron_async_slime_match}
