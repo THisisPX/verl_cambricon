@@ -30,11 +30,10 @@ DATA_DIR="${DATA_DIR:-/workspace/volume/pengxiong/datasets/geo3k_imgurl-verl}"  
 # =====================================================================
 
 # ---- user-adjustable ----
-# 性能分析模式: 只跑少量步数即可获得稳定的性能数据
-# total_rollout_steps 控制 rollout 端生成的总 prompt 数
-# gen_batch_size=1, ppo_mini_batch_size=64, n=8 → 每 8 prompts = 1 trainer step
-# 64 prompts → ~8 trainer steps, 足够性能分析
-total_rollout_steps=${TOTAL_ROLLOUT_STEPS:-64}
+# 性能分析模式: 生成足够多的 prompt 供 trainer 跑 ~12 步
+# gen_batch_size=1, ppo_mini_batch_size=64, n=8 → 64/8=8 prompts/step
+# 128 prompts → ~16 trainer steps, 生成完 trainer 仍在消费
+total_rollout_steps=${TOTAL_ROLLOUT_STEPS:-128}
 n_resp_per_prompt=${N_RESP_PER_PROMPT:-8}
 max_prompt_length=${MAX_PROMPT_LENGTH:-2048}
 max_response_length=${MAX_RESPONSE_LENGTH:-3072}
