@@ -45,7 +45,7 @@ train_pp=${TRAIN_PP:-1}
 
 # vLLM 推理并行 (2 卡: 1 engine × TP2)
 rollout_tp=${ROLLOUT_TP:-2}
-rollout_gpu_mem_util=${ROLLOUT_GPU_MEM_UTIL:-0.7}
+rollout_gpu_mem_util=${ROLLOUT_GPU_MEM_UTIL:-0.35}       # 4B VL 模型不需要太多显存
 rollout_temperature=${ROLLOUT_TEMPERATURE:-0.8}
 
 # 异步控制参数
