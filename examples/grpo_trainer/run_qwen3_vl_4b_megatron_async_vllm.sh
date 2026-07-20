@@ -171,7 +171,7 @@ python3 -m verl.experimental.fully_async_policy.fully_async_main \
     actor_rollout_ref.rollout.temperature="${rollout_temperature}" \
     actor_rollout_ref.rollout.top_p=1.0 \
     actor_rollout_ref.rollout.top_k=-1 \
-    actor_rollout_ref.rollout.enforce_eager=False \
+    actor_rollout_ref.rollout.enforce_eager=True \
     actor_rollout_ref.rollout.enable_chunked_prefill=True \
     actor_rollout_ref.rollout.free_cache_engine=True \
     actor_rollout_ref.rollout.max_num_seqs=64 \
