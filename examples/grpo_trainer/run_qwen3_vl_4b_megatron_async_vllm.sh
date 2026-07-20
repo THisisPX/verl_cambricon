@@ -13,6 +13,8 @@ set -xeuo pipefail
 
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 export VLLM_USE_V1=1
+# B300 sm_103a: force FlashAttn backend (FlashInfer may not support sm_103a)
+export VLLM_ATTENTION_BACKEND="${VLLM_ATTENTION_BACKEND:-FLASH_ATTN}"
 
 # ==================== 路径配置 (请根据实际环境修改) ====================
 MODEL_PATH="${MODEL_PATH:-/workspace/volume/distributed-training-softdata/models/Qwen3-VL-4B-Instruct}"
