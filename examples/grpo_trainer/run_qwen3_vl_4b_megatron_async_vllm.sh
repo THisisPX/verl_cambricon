@@ -13,6 +13,7 @@ set -xeuo pipefail
 
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 export VLLM_USE_V1=1
+export VLLM_ATTENTION_BACKEND=FLASH_ATTN
 # B300: pip-installed Triton bundles a stale ptxas that doesn't know sm_103a.
 # Point to the system CUDA 13.0 ptxas instead (supports sm_103).
 export TRITON_PTXAS_PATH=/usr/local/cuda/bin/ptxas

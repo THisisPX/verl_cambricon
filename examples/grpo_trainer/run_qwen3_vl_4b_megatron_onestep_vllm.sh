@@ -10,6 +10,7 @@ set -xeuo pipefail
 
 export CUDA_DEVICE_MAX_CONNECTIONS=1
 export VLLM_USE_V1=1
+export VLLM_ATTENTION_BACKEND=FLASH_ATTN
 # B300/Blackwell: system ptxas instead of stale Triton bundle
 export TRITON_PTXAS_PATH="${TRITON_PTXAS_PATH:-/usr/local/cuda/bin/ptxas}"
 export TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST:-10.0}"
