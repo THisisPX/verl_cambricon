@@ -50,7 +50,7 @@ actor_tp=${ACTOR_TP:-2}                                # slime --tensor-model-pa
 actor_pp=${ACTOR_PP:-1}
 
 rollout_tp=${ROLLOUT_TP:-2}
-rollout_gpu_mem_util=${ROLLOUT_GPU_MEM_UTIL:-0.35}      # vLLM on shared GPU: conservative
+rollout_gpu_mem_util=${ROLLOUT_GPU_MEM_UTIL:-0.20}      # vLLM on shared GPU (training already uses memory)
 rollout_temperature=${ROLLOUT_TEMPERATURE:-0.8}
 
 save_freq=${SAVE_FREQ:-9999}

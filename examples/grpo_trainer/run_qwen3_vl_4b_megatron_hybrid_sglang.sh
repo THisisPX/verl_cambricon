@@ -56,7 +56,7 @@ actor_tp=${ACTOR_TP:-2}                                # slime --tensor-model-pa
 actor_pp=${ACTOR_PP:-1}
 
 rollout_tp=${ROLLOUT_TP:-2}                            # slime --rollout-num-gpus-per-engine 2
-rollout_gpu_mem_util=${ROLLOUT_GPU_MEM_UTIL:-0.7}      # slime --sglang-mem-fraction-static 0.7
+rollout_gpu_mem_util=${ROLLOUT_GPU_MEM_UTIL:-0.35}      # SGLang on shared GPU (training also uses GPU)
 rollout_temperature=${ROLLOUT_TEMPERATURE:-0.8}
 
 save_freq=${SAVE_FREQ:-9999}
