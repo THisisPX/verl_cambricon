@@ -453,6 +453,28 @@ class FSDPEngine(BaseEngine):
 
         optimizer = build_optimizer(module.parameters(), self.optimizer_config)
 
+        # Wrap with quantization if optimizer_quant is configured
+        quant_cfg = getattr(self.optimizer_config, "optimizer_quant", None)
+        if quant_cfg is not None and quant_cfg.get("enable", False):
+            from verl.utils.optimizer_quant import OptimizerStateQuantConfig, QuantizedOptimizerWrapper
+
+            quant_config = OptimizerStateQuantConfig(
+                enable=quant_cfg.get("enable", False),
+                quant_dtype=quant_cfg.get("quant_dtype", "int8"),
+                block_size=quant_cfg.get("block_size", 256),
+                quantize_exp_avg=quant_cfg.get("quantize_exp_avg", True),
+                quantize_exp_avg_sq=quant_cfg.get("quantize_exp_avg_sq", True),
+                stochastic_round=quant_cfg.get("stochastic_round", True),
+                recalibrate_freq=quant_cfg.get("recalibrate_freq", None),
+                grad_quant_bits=quant_cfg.get("grad_quant_bits", None),
+                log_diagnostics=quant_cfg.get("log_diagnostics", True),
+            )
+            optimizer = QuantizedOptimizerWrapper(optimizer, quant_config)
+            logger.info(
+                f"QuantizedOptimizerWrapper enabled: quant_dtype={quant_config.quant_dtype}, "
+                f"exp_avg={quant_config.quantize_exp_avg}, exp_avg_sq={quant_config.quantize_exp_avg_sq}"
+            )
+
         return optimizer
 
     def _build_lr_scheduler(self, optimizer):

@@ -51,3 +51,32 @@ warmup_style: null
 # override_optimizer_config:
 #   bf16_stochastic_round: true
 override_optimizer_config: null
+
+# ────────────────────────────────────────────────────────────
+# Optimizer State Quantization (RL low-bit learner experiment)
+# ────────────────────────────────────────────────────────────
+# When enable=true, Adam optimizer states (exp_avg, exp_avg_sq) are
+# block-wise quantized after each optimizer step. Gradients can also
+# be quantized before the step (grad_quant_bits).
+#
+# Example: 8-bit optimizer states + diagnostics
+#   optimizer_quant:
+#     enable: true
+#     quant_dtype: int8
+#     block_size: 256
+#     quantize_exp_avg: true
+#     quantize_exp_avg_sq: true
+#     stochastic_round: true
+#     recalibrate_freq: null     # every step = no scale staleness
+#     grad_quant_bits: null      # no gradient quantization
+#     log_diagnostics: true
+optimizer_quant:
+  enable: false
+  quant_dtype: int8
+  block_size: 256
+  quantize_exp_avg: true
+  quantize_exp_avg_sq: true
+  stochastic_round: true
+  recalibrate_freq: null
+  grad_quant_bits: null
+  log_diagnostics: true

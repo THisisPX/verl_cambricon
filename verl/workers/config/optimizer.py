@@ -112,6 +112,7 @@ class FSDPOptimizerConfig(OptimizerConfig):
     num_cycles: float = 0.5
     override_optimizer_config: Optional[dict] = None
     zero_indexed_step: bool = True
+    optimizer_quant: Optional[dict] = None  # OptimizerStateQuantConfig fields
 
     def __post_init__(self):
         if self.warmup_style is not None:
