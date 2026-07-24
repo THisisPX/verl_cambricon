@@ -20,7 +20,7 @@ import torch
 
 from .config import OptimizerStateQuantConfig
 from .diagnostics import OptimizerQuantDiagnostics
-from .quantization import dequantize_tensor, quantize_tensor
+from .quantization import dequantize_tensor, quantize_tensor, quantize_tensor_with_scale
 
 logger = logging.getLogger(__file__)
 
@@ -59,6 +59,9 @@ class QuantizedOptimizerWrapper:
             else None
         )
         self._step_count = 0
+        # Cache last calibrated (scales, orig_shape) per param key for stale-scale reuse.
+        # Key: f"{id(p)}_{state_key}" → (scales_tensor, original_shape)
+        self._last_calibrated_scales: dict[str, tuple[torch.Tensor, torch.Size]] = {}
 
     # Delegate attribute access to the wrapped optimizer.
     def __getattr__(self, name: str):
@@ -75,10 +78,21 @@ class QuantizedOptimizerWrapper:
         self._optimizer.param_groups = value
 
     def state_dict(self):
-        return self._optimizer.state_dict()
+        # Dequantize before serialization so checkpoints contain float32
+        # tensors rather than int8 tuples, ensuring compatibility when
+        # loading with or without quantization enabled.
+        self._restore_optimizer_states()
+        sd = self._optimizer.state_dict()
+        if self._config.enable:
+            self._quantize_optimizer_states(needs_recalibration=True)
+        return sd
 
     def load_state_dict(self, state_dict):
         self._optimizer.load_state_dict(state_dict)
+        # After loading a BF16 checkpoint, immediately quantize states
+        # so subsequent steps operate on the quantized representation.
+        if self._config.enable:
+            self._quantize_optimizer_states(needs_recalibration=True)
 
     def zero_grad(self, *args, **kwargs):
         return self._optimizer.zero_grad(*args, **kwargs)
@@ -175,9 +189,9 @@ class QuantizedOptimizerWrapper:
 
         Args:
             needs_recalibration: Whether to compute fresh block-wise scales.
-                If False, reuse existing scales (from previous step) for
-                the quantization — this introduces scale staleness deliberately
-                to study its effect on training stability.
+                If True, compute new amax and cache the scales for future reuse.
+                If False, reuse previously cached scales — this deliberately
+                introduces scale staleness to study its effect on RL training.
         """
         config = self._config
         scale_drift_values: list[float] = []
@@ -204,20 +218,49 @@ class QuantizedOptimizerWrapper:
                     if not do_quantize:
                         continue
 
-                    q, scales, orig_shape = quantize_tensor(
-                        val,
-                        block_size=config.block_size,
-                        quant_dtype=config.quant_dtype,
-                        use_stochastic_round=config.stochastic_round,
-                    )
+                    param_key = f"{id(p)}_{key}"
 
-                    # Track scale drift for diagnostics
-                    if needs_recalibration and self._diagnostics is not None:
-                        drift = self._diagnostics.update_and_compute_scale_drift(
-                            param_id, scales
+                    if needs_recalibration:
+                        # Recalibrate: compute fresh block-wise scales
+                        q, scales, orig_shape = quantize_tensor(
+                            val,
+                            block_size=config.block_size,
+                            quant_dtype=config.quant_dtype,
+                            use_stochastic_round=config.stochastic_round,
                         )
-                        if drift is not None:
-                            scale_drift_values.append(drift)
+                        # Cache for future stale-scale steps
+                        self._last_calibrated_scales[param_key] = (scales, orig_shape)
+
+                        # Track scale drift for diagnostics
+                        if self._diagnostics is not None:
+                            drift = self._diagnostics.update_and_compute_scale_drift(
+                                param_id, scales
+                            )
+                            if drift is not None:
+                                scale_drift_values.append(drift)
+                    else:
+                        # Stale-scale path: reuse scales from previous calibration
+                        cached = self._last_calibrated_scales.get(param_key)
+                        if cached is None:
+                            # No cached scales yet — fall back to fresh calibration
+                            q, scales, orig_shape = quantize_tensor(
+                                val,
+                                block_size=config.block_size,
+                                quant_dtype=config.quant_dtype,
+                                use_stochastic_round=config.stochastic_round,
+                            )
+                            self._last_calibrated_scales[param_key] = (scales, orig_shape)
+                        else:
+                            stale_scales, orig_shape = cached
+                            q = quantize_tensor_with_scale(
+                                val,
+                                scales=stale_scales,
+                                original_shape=orig_shape,
+                                block_size=config.block_size,
+                                quant_dtype=config.quant_dtype,
+                                use_stochastic_round=config.stochastic_round,
+                            )
+                            scales = stale_scales
 
                     state[key] = (q, scales, orig_shape)
 

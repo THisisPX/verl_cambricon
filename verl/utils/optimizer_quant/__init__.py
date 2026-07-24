@@ -14,7 +14,7 @@
 
 from .config import OptimizerStateQuantConfig
 from .diagnostics import OptimizerQuantDiagnostics
-from .quantization import dequantize_tensor, quantize_tensor, stochastic_round
+from .quantization import dequantize_tensor, quantize_tensor, quantize_tensor_with_scale, stochastic_round
 from .wrapper import QuantizedOptimizerWrapper
 
 __all__ = [
@@ -22,6 +22,7 @@ __all__ = [
     "OptimizerQuantDiagnostics",
     "QuantizedOptimizerWrapper",
     "quantize_tensor",
+    "quantize_tensor_with_scale",
     "dequantize_tensor",
     "stochastic_round",
 ]

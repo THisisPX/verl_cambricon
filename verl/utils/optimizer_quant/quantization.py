@@ -141,6 +141,71 @@ def quantize_tensor(
     return quantized, scale.to(torch.float32), original_shape
 
 
+def quantize_tensor_with_scale(
+    tensor: torch.Tensor,
+    scales: torch.Tensor,
+    original_shape: torch.Size,
+    block_size: int = 256,
+    quant_dtype: str = "int8",
+    use_stochastic_round: bool = True,
+) -> torch.Tensor:
+    """Quantize a tensor using pre-computed block-wise scales (no recalibration).
+
+    This is the "stale scale" path: it reuses scales from a previous calibration
+    step instead of recomputing amax, deliberately introducing scale staleness
+    to study its effect on RL training stability.
+
+    Args:
+        tensor: Input tensor to quantize.
+        scales: Pre-computed block scales from a prior calibration (from quantize_tensor).
+        original_shape: Original tensor shape (used for padding alignment).
+        block_size: Block size for block-wise quantization.
+        quant_dtype: Target quantization type ("int8" or "fp8_e4m3").
+        use_stochastic_round: Whether to use stochastic rounding.
+
+    Returns:
+        Quantized int8 tensor of shape [num_blocks, block_size] (padded).
+    """
+    numel = tensor.numel()
+    if numel == 0:
+        return torch.zeros(0, dtype=torch.int8, device=tensor.device)
+
+    flat = tensor.reshape(-1).float()
+    num_blocks = scales.shape[0]
+    padded_size = num_blocks * block_size
+
+    if padded_size > numel:
+        flat = torch.nn.functional.pad(flat, (0, padded_size - numel))
+    blocked = flat.view(num_blocks, block_size)
+
+    if quant_dtype == "int8":
+        max_val = 127.0
+        scale = scales / max_val
+        normalized = blocked / scale.clamp(min=1e-12)
+        if use_stochastic_round:
+            quantized = stochastic_round(normalized)
+        else:
+            quantized = torch.round(normalized)
+        quantized = quantized.clamp(-max_val, max_val).to(torch.int8)
+    elif quant_dtype == "fp8_e4m3":
+        if hasattr(torch, "float8_e4m3fn"):
+            blocked_fp8 = blocked.to(torch.float8_e4m3fn)
+            quantized = blocked_fp8.view(torch.int8)
+        else:
+            max_val = 127.0
+            scale = scales / max_val
+            normalized = blocked / scale.clamp(min=1e-12)
+            if use_stochastic_round:
+                quantized_arr = stochastic_round(normalized)
+            else:
+                quantized_arr = torch.round(normalized)
+            quantized = quantized_arr.clamp(-max_val, max_val).to(torch.int8)
+    else:
+        raise ValueError(f"Unsupported quant_dtype: {quant_dtype}")
+
+    return quantized
+
+
 def dequantize_tensor(
     quantized: torch.Tensor,
     scales: torch.Tensor,
