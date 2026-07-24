@@ -34,7 +34,7 @@ RECALIBRATE_FREQ=${RECALIBRATE_FREQ:-}
 STOCHASTIC_ROUND=${STOCHASTIC_ROUND:-true}
 INFER_BACKEND=${INFER_BACKEND:-vllm}
 
-MODEL_PATH=${MODEL_PATH:-Qwen/Qwen3-8B}
+MODEL_PATH=${MODEL_PATH:-/workspace/volume/distributed-training-softdata/models/Qwen3-8B}
 NNODES=${NNODES:-1}
 NGPUS_PER_NODE=${NGPUS_PER_NODE:-8}
 
@@ -97,8 +97,8 @@ fi
 DATA=(
     algorithm.adv_estimator=grpo
     algorithm.use_kl_in_reward=False
-    data.train_files="['$HOME/data/gsm8k/train.parquet', '$HOME/data/math/train.parquet']"
-    data.val_files="['$HOME/data/gsm8k/test.parquet', '$HOME/data/math/test.parquet']"
+    data.train_files="['/workspace/volume/pengxiong/datasets/gsm8k-processed/train.parquet']"
+    data.val_files="['/workspace/volume/pengxiong/datasets/aime-2024/aime-2024.parquet']"
     data.train_batch_size=${train_batch_size}
     data.max_prompt_length=${max_prompt_length}
     data.max_response_length=${max_response_length}
